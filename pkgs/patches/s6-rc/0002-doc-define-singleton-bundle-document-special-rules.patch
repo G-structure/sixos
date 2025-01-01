@@ -1,0 +1,77 @@
+From f409c3ebe880f9310214146c806284ec4dc8d8e5 Mon Sep 17 00:00:00 2001
+From: Adam Joseph <adam@westernsemico.com>
+Date: Mon, 25 Sep 2023 02:59:54 -0700
+Subject: [PATCH 02/10] doc: define "singleton bundle", document special rules
+
+While reviewing the source code for s6-rc-update I noticed that it
+has special handling for singleton bundles; these are not explicitly
+defined in the documentation, nor is this behavior described.  This
+commit does so.
+
+Signed-off-by: Adam Joseph <adam@westernsemico.com>
+---
+ doc/s6-rc-compile.html |  9 +++++++++
+ doc/s6-rc-update.html  | 13 ++++++++-----
+ 2 files changed, 17 insertions(+), 5 deletions(-)
+
+diff --git a/doc/s6-rc-compile.html b/doc/s6-rc-compile.html
+index ef06893..0c7301b 100644
+--- a/doc/s6-rc-compile.html
++++ b/doc/s6-rc-compile.html
+@@ -141,6 +141,15 @@ contains a child bundle will be compiled as if the parent bundle had
+ directly included the child bundle's contents.
+ </p>
+ 
++<p>
++A <i>singleton bundle</i> is a bundle which contains exactly one
++atomic after flattening.  This distinction is important
++to <tt>s6-rc-update</tt>, which allows renaming of singleton bundles
++(but not other bundles), and which considers a singleton bundle to
++be of the same type (oneshot or longrun) as the atomic it contains
++for purposes of avoiding unnecessary restarts.
++</p>
++
+ <h3> For atomic services </h3>
+ 
+ <ul>
+diff --git a/doc/s6-rc-update.html b/doc/s6-rc-update.html
+index 0883a22..49aa16a 100644
+--- a/doc/s6-rc-update.html
++++ b/doc/s6-rc-update.html
+@@ -149,8 +149,10 @@ service to be restarted in the following cases:
+  <li> The service has disappeared in the new compiled. In this case, the
+ old service will simply be stopped. </li>
+  <li> The service has changed types: a oneshot becomes a longrun, a longrun
+-becomes a oneshot, or an atomic service becomes a bundle. In this case, the
+-old service will be stopped, then the new service will be started. </li>
++becomes a oneshot, or an atomic service becomes a non-singleton bundle. In this case, the
++old service will be stopped, then the new service will be started.
++Note that singleton bundles are considered to be the same type
++as the single atomic they contain.</li>
+  <li> The service has a dependency to a service that must restart, or to an
+ old service that must stop, or to a new service that did not previously
+ exist or that was previously down. </li>
+@@ -202,8 +204,8 @@ can be quoted, that <tt>#</tt> comments are recognized, etc.
+ </p>
+ 
+ <p>
+- The first word in a line must be the name of an "old" atomic service, i.e.
+-an atomic service contained in the current live database. The remaining
++ The first word in a line must be the name of an "old" atomic service or singleton bundle, i.e.
++an atomic service (or bundle containing exactly one atomic service) contained in the current live database. The remaining
+ words in the line are instructions telling s6-rc-update how to convert
+ that service.
+ </p>
+@@ -216,7 +218,8 @@ line must be the new name of the service in the new database: s6-rc-update
+ will then rename it. It is possible
+ to rename an atomic service to another atomic service or a bundle, but no
+ matter whether a service is renamed or not, changing its type will force a
+-restart.
++restart.  Note that singleton bundles are considered to be the same type as
++the atomic they contain.
+ </p>
+ 
+ <h4> Restarting </h4>
+-- 
+2.41.0
+

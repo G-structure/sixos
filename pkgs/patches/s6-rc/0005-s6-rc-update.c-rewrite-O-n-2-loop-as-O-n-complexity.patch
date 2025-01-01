@@ -1,0 +1,68 @@
+From 66ee25b614e6f28f366637467f76e11044542920 Mon Sep 17 00:00:00 2001
+From: Adam Joseph <adam@westernsemico.com>
+Date: Mon, 25 Sep 2023 03:35:27 -0700
+Subject: [PATCH 05/10] s6-rc-update.c: rewrite O(n^2) loop as O(n) complexity
+
+Prior to this commit, s6-rc-update had a loop with the following
+comment:
+
+  This part runs in O(oldn*newn). There are no syscalls in the loop,
+  so it should still be negligible unless you have 10k services.
+
+The loop does the following:
+
+   for each old service which was already up
+     for each new service
+       if the old service converts to the new service,
+         set some new service flags based on old service flags
+
+The loop is O(n^2) due to the nested iteration.  We can rewrite this
+with a single iteration by making use of the invimage[] array, which
+maps from new services to old services:
+
+   for each new service
+     if *ANY* old service converts to the new service,
+       set some new service flags based on that old service's flags
+
+This takes advantage of the fact that invimage is an injective
+(partial) function.
+
+Signed-off-by: Adam Joseph <adam@westernsemico.com>
+---
+ src/s6-rc/s6-rc-update.c | 15 ++++++---------
+ 1 file changed, 6 insertions(+), 9 deletions(-)
+
+diff --git a/src/s6-rc/s6-rc-update.c b/src/s6-rc/s6-rc-update.c
+index c1074de..e0726a2 100644
+--- a/src/s6-rc/s6-rc-update.c
++++ b/src/s6-rc/s6-rc-update.c
+@@ -257,20 +257,17 @@ static void compute_transitions (char const *convfile, unsigned char *oldstate,
+    /*
+       Convert the old state to the new state: if an old service is up,
+       the new service will be either up or wanted up.
+-      This part runs in O(oldn*newn). There are no syscalls in the loop,
+-      so it should still be negligible unless you have 10k services.
+    */
+ 
+-    i = oldn ;
++    i = newn;
+     while (i--)
+-      if (oldstate[i] & OLDSTATE_WAS_UP) {
+-        unsigned int j = newn ;
+-        while (j--)
+-          if (bitarray_peek(conversion_table + i * newm, j))
+-            newstate[j] |=
+-              (oldstate[i] & OLDSTATE_WANT_DOWN_OR_RESTART)
++      if (newstate[i] & NEWSTATE_IS_CONVERSION_TARGET) {
++        if (oldstate[invimage[i]] & OLDSTATE_WAS_UP) {
++            newstate[i] |=
++              (oldstate[invimage[i]] & OLDSTATE_WANT_DOWN_OR_RESTART)
+               ? NEWSTATE_INCLUDE_IN_UP_TRANSITION
+               : (NEWSTATE_WAS_UP | NEWSTATE_WANT_UP_AFTER_CLOSURE) ;
++        }
+       }
+ 
+ 
+-- 
+2.41.0
+

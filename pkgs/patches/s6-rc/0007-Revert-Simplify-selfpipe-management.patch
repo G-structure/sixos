@@ -1,0 +1,63 @@
+From da0618fb1460ef3275c8af6cc0ee802e3147dcfb Mon Sep 17 00:00:00 2001
+From: Adam Joseph <adam@westernsemico.com>
+Date: Mon, 25 Sep 2023 21:22:18 -0700
+Subject: [PATCH 07/10] Revert " Simplify selfpipe management"
+
+This reverts commit 7438b7a3203502cf5a61be4cc8e8fe4c98baa6d1.
+---
+ src/s6-rc/s6-rc.c | 14 ++++++++------
+ 1 file changed, 8 insertions(+), 6 deletions(-)
+
+diff --git a/src/s6-rc/s6-rc.c b/src/s6-rc/s6-rc.c
+index e4822a3..0496239 100644
+--- a/src/s6-rc/s6-rc.c
++++ b/src/s6-rc/s6-rc.c
+@@ -389,9 +389,9 @@ static inline int handle_signals (int h)
+   }
+ }
+ 
+-static int doit (int h)
++static int doit (int spfd, int h)
+ {
+-  iopause_fd x = { .fd = selfpipe_fd(), .events = IOPAUSE_READ } ;
++  iopause_fd x = { .fd = spfd, .events = IOPAUSE_READ } ;
+   int exitcode = 0 ;
+   unsigned int i = n ;
+   pidindex_t pidindexblob[n] ;
+@@ -554,6 +554,7 @@ int main (int argc, char const *const *argv)
+    /* Allocate enough stack for the db */
+ 
+     {
++      int spfd ;
+       s6rc_service_t serviceblob[n] ;
+       char const *argvblob[dbblob.nargvs] ;
+       uint32_t depsblob[dbblob.ndeps << 1] ;
+@@ -657,7 +658,8 @@ int main (int argc, char const *const *argv)
+ 
+      /* Perform a state change */
+ 
+-      if (selfpipe_init() == -1) strerr_diefu1sys(111, "init selfpipe") ;
++      spfd = selfpipe_init() ;
++      if (spfd < 0) strerr_diefu1sys(111, "init selfpipe") ;
+       {
+         sigset_t set ;
+         sigemptyset(&set) ;
+@@ -672,12 +674,12 @@ int main (int argc, char const *const *argv)
+       {
+         int r ;
+         if (up) invert_selection() ;
+-        r = doit(0) ;
++        r = doit(spfd, 0) ;
+         if (r) return r ;
+         invert_selection() ;
+-        return doit(1) ;
++        return doit(spfd, 1) ;
+       }
+-      else return doit(up) ;
++      else return doit(spfd, up) ;
+     }
+   }
+ }
+-- 
+2.41.0
+

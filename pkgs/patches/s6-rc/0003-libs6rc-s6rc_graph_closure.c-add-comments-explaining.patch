@@ -1,0 +1,56 @@
+From 540952f42d33dfadc5781965be703e0f2a56a8dc Mon Sep 17 00:00:00 2001
+From: Adam Joseph <adam@westernsemico.com>
+Date: Mon, 25 Sep 2023 03:01:34 -0700
+Subject: [PATCH 03/10] libs6rc/s6rc_graph_closure.c: add comments explaining
+ behavior
+
+While reviewing the algorithm implemented by s6-rc-update I found it
+difficult to determine the meaning of some of the arguments to the
+functions in libs6rc/s6rc_graph_closure.c.  This commit adds
+comments to that file documenting those arguments and functions
+where their behavior was not immediately obvious to me.
+
+Signed-off-by: Adam Joseph <adam@westernsemico.com>
+---
+ src/libs6rc/s6rc_graph_closure.c | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+
+diff --git a/src/libs6rc/s6rc_graph_closure.c b/src/libs6rc/s6rc_graph_closure.c
+index 7c3a8f9..50af30b 100644
+--- a/src/libs6rc/s6rc_graph_closure.c
++++ b/src/libs6rc/s6rc_graph_closure.c
+@@ -11,11 +11,19 @@ struct recinfo_s
+   s6rc_db_t const *db ;
+   unsigned int n ;
+   unsigned char *bits ;
++  /* bitarray in which the i^th bit is set iff the closure routine
++     has already visited the i^th graph node */
+   unsigned char *mark ;
+   unsigned char mask ;
+   unsigned char h : 1 ;
+ } ;
+ 
++/*
++  If the i^th graph node has *any* bit of `recinfo->mask` set then
++  this function will be called on each of the i^th node's
++  dependencies.  This function will then set *every* `mask` bit on
++  that node and call itself recursively on that node.
++*/
+ static void s6rc_graph_closure_rec (recinfo_t *recinfo, unsigned int i)
+ {
+   if (!bitarray_peek(recinfo->mark, i))
+@@ -27,6 +35,11 @@ static void s6rc_graph_closure_rec (recinfo_t *recinfo, unsigned int i)
+   }
+ }
+ 
++/*
++  `h` indicates whether you want a forward or reverse search.
++  - If `h==0` then we close over everything that the marked node *depends upon*
++  - If `h==1` then we close over everything that *depends upon* the marked node
++*/
+ void s6rc_graph_closure (s6rc_db_t const *db, unsigned char *bits, unsigned int bitno, int h)
+ {
+   unsigned int n = db->nshort + db->nlong ;
+-- 
+2.41.0
+

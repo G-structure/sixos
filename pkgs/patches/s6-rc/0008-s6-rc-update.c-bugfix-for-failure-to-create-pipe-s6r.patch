@@ -1,0 +1,107 @@
+From 904486be5bd595321724634900384be84426aa75 Mon Sep 17 00:00:00 2001
+From: Adam Joseph <adam@westernsemico.com>
+Date: Mon, 25 Sep 2023 21:26:42 -0700
+Subject: [PATCH 08/10] s6-rc-update.c: bugfix for failure to create
+ pipe:s6rc-*-*
+
+When an invocation of s6-rc-update causes an already-running longrun from not
+being the consumer-for any service to being the consumer-for at least one other
+service, s6-rc-update will neglect to create the necessary pipe and store it in
+s6rc-fdholder.
+
+This commit detects the above condition and ensures that the pipe is created.
+It also forces a restart of the consumer, since that is the only way to change
+its stdin to/from an fdup() of its supervisor's stdin.
+
+Below is a crude shell script which demonstrates the bug.  It does not require
+root.  Before running the script below, you must run the following command on a
+different terminal (you'll want to observe its output):
+
+  mkdir -p /tmp/live/service
+  s6-svscan -- /tmp/live/service/
+
+Here is the script:
+
+rm -rf source compiled compiled2
+mkdir source
+
+mkdir source/consumer
+echo longrun > source/consumer/type
+echo -e '#!/bin/bash\ncat > /dev/null' > source/consumer/run
+chmod +x source/consumer/run
+
+mkdir source/producer
+echo longrun > source/producer/type
+echo -e '#!/bin/bash\nwhile true; do sleep 1; date; done\n' > source/producer/run
+chmod +x source/producer/run
+
+s6-rc-compile compiled source
+s6-rc-init -l /tmp/live/compiled -c $(pwd)/compiled /tmp/live/service/
+s6-rc -l /tmp/live/compiled start producer consumer s6rc-fdholder
+
+echo <<EOF
+at this point you will see the output of "producer" in the terminal
+window where s6-svscan is running -- its output goes to the catch-all logger
+
+next, we will add the producer/consumer funnel links.  however since the
+services have already started, they will not be *re*started, and s6-fdholder
+wont have the necessary file descriptors
+EOF
+sleep 5
+
+echo producer > source/consumer/consumer-for
+echo consumer > source/producer/producer-for
+s6-rc-compile compiled2 source
+s6-rc-update -l /tmp/live/compiled $(pwd)/compiled2
+
+echo <<EOF
+next we restart the producer (only); you should see messages like the following
+on the catch-all logger:
+  s6-fdholder-retrieve: fatal: unable to retrieve fd for id pipe:s6rc-w-consumer: No such file or directory
+EOF
+sleep 5
+s6-rc -l /tmp/live/compiled stop producer
+s6-rc -l /tmp/live/compiled start producer
+
+Signed-off-by: Adam Joseph <adam@westernsemico.com>
+---
+ src/s6-rc/s6-rc-update.c | 23 ++++++++++++++++++++++-
+ 1 file changed, 22 insertions(+), 1 deletion(-)
+
+diff --git a/src/s6-rc/s6-rc-update.c b/src/s6-rc/s6-rc-update.c
+index 240a256..96fb00f 100644
+--- a/src/s6-rc/s6-rc-update.c
++++ b/src/s6-rc/s6-rc-update.c
+@@ -201,7 +201,28 @@ static inline void fill_convtable_and_flags (unsigned char *conversion_table, un
+       bitarray_set(conversion_table + i * bitarray_div8(newn), x) ;
+       if (oldstate[i] & OLDSTATE_CONVERTS_TO_ATOMIC_OR_SINGLETON_BUNDLE)
+       {
+-        newstate[x] |= NEWSTATE_IS_BIJECTIVE_CONVERSION_TARGET ;
++        if ( (olddb->services[i].x.longrun.nproducers==0) ==
++             (newdb->services[x].x.longrun.nproducers==0) ) {
++          /*
++            The NEWSTATE_IS_BIJECTIVE_CONVERSION_TARGET flag indicates that we
++            do NOT need to create or destroy any fdholder pipes for the stdin of
++            newstate[x].  This is untrue for a transition which adds the first
++            producer to a consumer or removes the last producer from it.
++            Therefore we set this flag only when the zeroness of the service's
++            number of producers is unchanged.
++          */
++          newstate[x] |= NEWSTATE_IS_BIJECTIVE_CONVERSION_TARGET ;
++        } else {
++          /*
++            If we are adding a producer to a service which previously had none,
++            we must change that service's stdin from a fdup() of the
++            supervisor's stdin to an fdholder-owned pipe.  Likewise, when
++            removing the last producer from a consumer we must change its stdin
++            back to an fdup() of the supervisor's stdin.  The only way to make
++            these changes is by restarting the service.
++          */
++          oldstate[i] |= OLDSTATE_RESTART ;
++        }
+ 
+         /* The following line forces a restart when a oneshot
+            converts to a longrun or vice versa. */
+-- 
+2.41.0
+

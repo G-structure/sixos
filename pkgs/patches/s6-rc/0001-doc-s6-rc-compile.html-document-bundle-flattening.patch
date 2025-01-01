@@ -1,0 +1,41 @@
+From dd9f23db05812354bc27afe6517ed43464296def Mon Sep 17 00:00:00 2001
+From: Adam Joseph <adam@westernsemico.com>
+Date: Mon, 25 Sep 2023 02:54:08 -0700
+Subject: [PATCH 01/10] doc/s6-rc-compile.html: document bundle flattening
+
+This commit adds a single sentence explaining that nested bundles
+are flattened by s6-rc-compile; the fact that one bundle contains
+another (rather than merely happening to contain all the atomics
+that the latter contains) is not preserved by s6-rc-compile.
+
+Although this is the most reasonable handling it is not the only
+possible handling.  I had to read the source code in order to make
+sure that bundle nesting was not represented in the output of
+s6-rc-compile, and figured that adding a mention of this fact to the
+documentation might save others the trouble.
+
+More importantly, the special rules for singleton bundles (see next
+patch in series) depend on this flattening behavior.
+
+Signed-off-by: Adam Joseph <adam@westernsemico.com>
+---
+ doc/s6-rc-compile.html | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/doc/s6-rc-compile.html b/doc/s6-rc-compile.html
+index e1ad82b..ef06893 100644
+--- a/doc/s6-rc-compile.html
++++ b/doc/s6-rc-compile.html
+@@ -136,6 +136,9 @@ deprecated. </li>
+ <tt>contents</tt> file.
+ However, if s6-rc-compile detects a cycle in bundle definitions, it will
+ complain and exit 1.
++Bundles are flattened during compilation: a parent bundle which
++contains a child bundle will be compiled as if the parent bundle had
++directly included the child bundle's contents.
+ </p>
+ 
+ <h3> For atomic services </h3>
+-- 
+2.41.0
+

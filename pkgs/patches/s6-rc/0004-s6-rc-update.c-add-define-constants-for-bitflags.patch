@@ -1,0 +1,390 @@
+From f76d6487bcadc3b373fa8b262185b26ac02c4ccd Mon Sep 17 00:00:00 2001
+From: Adam Joseph <adam@westernsemico.com>
+Date: Mon, 25 Sep 2023 03:07:18 -0700
+Subject: [PATCH 04/10] s6-rc-update.c: add #define constants for bitflags
+
+The documentation for s6-rc-update says "Live upgrading a service
+database is not easy, and no fully automated system can get it right
+in all cases."  This is certainly true!  I reviewed the source code
+in order to be sure I fully understood the algorithm.
+
+I found it much easier to do this after replacing all of the
+"Conversions and transitions" bitflags with descriptive #define
+identifiers.  For example this routine, which had no comment, was
+quite difficult to understand:
+
+  if (oldstate[i] & 1 && (oldstate[i] & 4 || !(oldstate[i] & 8)))
+    oldstate[i] |= 34 ;
+  else oldstate[i] &= 221 ;
+
+Here's what these two lines of code do: if a service was up in the
+old state and either shall be restarted or else converts to a
+non-singleton bundle, set the two flags 'included in the down
+transition' and 'wanted down or restarted'; otherwise clear those
+two flags.
+
+When the integers above are replaced by symbolic identifiers, the
+code now conveys exactly what it does:
+
+  if (oldstate[i] & OLDSTATE_WAS_UP &&
+      (oldstate[i] & OLDSTATE_RESTART ||
+       !(oldstate[i] & OLDSTATE_CONVERTS_TO_ATOMIC_OR_SINGLETON_BUNDLE)
+       ))
+    oldstate[i] |=
+      OLDSTATE_WANT_DOWN_OR_RESTART |
+      OLDSTATE_INCLUDE_IN_DOWN_TRANSITION;
+  else
+    oldstate[i] &=
+      ~(OLDSTATE_WANT_DOWN_OR_RESTART |
+        OLDSTATE_INCLUDE_IN_DOWN_TRANSITION);
+
+This commit has been written to do nothing other than add the
+descriptive identifiers and replace integers with their
+corresponding identifier-combinations.  Therefore it should be
+straightforward to locally verify the correctness of each change in
+this commit.
+
+Signed-off-by: Adam Joseph <adam@westernsemico.com>
+---
+ src/s6-rc/s6-rc-update.c | 167 +++++++++++++++++++++++----------------
+ 1 file changed, 100 insertions(+), 67 deletions(-)
+
+diff --git a/src/s6-rc/s6-rc-update.c b/src/s6-rc/s6-rc-update.c
+index 617cdfb..c1074de 100644
+--- a/src/s6-rc/s6-rc-update.c
++++ b/src/s6-rc/s6-rc-update.c
+@@ -48,26 +48,24 @@ static unsigned int verbosity = 1 ;
+ 
+  /* Conversions and transitions */
+ 
+-
+- /*
+-  oldstate flags:
+-     1 -> is up
+-     2 -> wanted down
+-     4 -> restart
+-     8 -> converts to atomic or singleton
+-    16 -> has a new name
+-    32 -> wanted down after closure
+-    64 -> appears in convfile
+-
+-  newstate flags:
+-     1 -> is up (converted from old up)
+-     2 -> wanted up
+-     4 -> is a bijective conversion target
+-     8 -> is a conversion target
+-    16 -> changed names
+-    32 -> is up after closure (i.e. includes new deps)
+-   128 -> depends on a new service, has to be restarted
+- */
++#define OLDSTATE_WAS_UP 1
++#define OLDSTATE_INCLUDE_IN_DOWN_TRANSITION 2
++#define OLDSTATE_RESTART 4
++#define OLDSTATE_CONVERTS_TO_ATOMIC_OR_SINGLETON_BUNDLE 8
++#define OLDSTATE_HAS_NEW_NAME 16
++#define OLDSTATE_WANT_DOWN_OR_RESTART 32
++#define OLDSTATE_WANT_DOWN_OR_RESTART_BITNO 5
++#define OLDSTATE_APPEARS_IN_CONVFILE 64
++
++#define NEWSTATE_WAS_UP 1
++#define NEWSTATE_INCLUDE_IN_UP_TRANSITION 2
++#define NEWSTATE_IS_BIJECTIVE_CONVERSION_TARGET 4
++#define NEWSTATE_IS_CONVERSION_TARGET 8
++#define NEWSTATE_CHANGED_NAMES 16
++#define NEWSTATE_WANT_UP_AFTER_CLOSURE_BITNO 5
++#define NEWSTATE_WANT_UP_AFTER_CLOSURE 32
++#define NEWSTATE_DEPENDS_ON_A_NEW_SERVICE_BITNO 7
++#define NEWSTATE_DEPENDS_ON_A_NEW_SERVICE 128U
+ 
+ static inline void parse_line (stralloc *sa, char const *s, size_t slen, unsigned int *newnames, unsigned char *oldstate, cdb const *oldc, s6rc_db_t const *olddb)
+ {
+@@ -96,22 +94,22 @@ static inline void parse_line (stralloc *sa, char const *s, size_t slen, unsigne
+     if (data.len != 4) strerr_dief5x(5, "identifier ", sa->s + base + slen, " does not represent an atomic service in ", live, "/compiled") ;
+     uint32_unpack_big(data.s, &x) ;
+     if (x >= oldn) strerr_dief3x(4, "invalid database in ", live, "/compiled") ;
+-    if (oldstate[x] & 64)
++    if (oldstate[x] & OLDSTATE_APPEARS_IN_CONVFILE)
+       strerr_dief3x(6, "service ", olddb->string + olddb->services[x].name, " appears more than once in conversion file") ;
+-    oldstate[x] |= 64 ;
++    oldstate[x] |= OLDSTATE_APPEARS_IN_CONVFILE ;
+     cur = base + slen + strlen(sa->s + base + slen) + 1 ;
+     if (n >= 2 && !strcmp(sa->s + cur, "->"))
+     {
+       size_t newnamelen = strlen(sa->s + cur + 3) ;
+       memcpy(sa->s + sa->len, sa->s + cur + 3, newnamelen + 1) ;
+-      newnames[x] = sa->len ; oldstate[x] |= 16 ;
++      newnames[x] = sa->len ; oldstate[x] |= OLDSTATE_HAS_NEW_NAME ;
+       sa->len += newnamelen + 1 ;
+       cur += newnamelen + 4 ;
+       n -= 2 ;
+     }
+     while (n--)
+     {
+-      if (!strcmp(sa->s + cur, "restart")) oldstate[x] |= 4 ;
++      if (!strcmp(sa->s + cur, "restart")) oldstate[x] |= OLDSTATE_RESTART ;
+       else
+         strerr_dief2x(100, "unknown keyword in conversion file: ", sa->s + cur) ;
+       cur += strlen(sa->s + cur) + 1 ;
+@@ -161,37 +159,39 @@ static inline void fill_convtable_and_flags (unsigned char *conversion_table, un
+ 
+   while (i--)
+   {
+-    char const *newname = oldstate[i] & 16 ? namedata + oldindex[i] : olddb->string + olddb->services[i].name ;
++    char const *newname = oldstate[i] & OLDSTATE_HAS_NEW_NAME ? namedata + oldindex[i] : olddb->string + olddb->services[i].name ;
+     cdb_data data ;
+     int r = cdb_find(newc, &data, newname, strlen(newname)) ;
+     if (r < 0) strerr_dief3x(111, "invalid cdb in ", newfn, "/resolve.cdb") ;
+     if (!r)
+     {
+-      if (oldstate[i] & 16)
++      if (oldstate[i] & OLDSTATE_HAS_NEW_NAME)
+         strerr_dief4x(4, "bad conversion file: new service ", newname, " is undefined in database ", newfn) ;
+-      oldstate[i] |= 34 ; /* disappeared */
++      oldstate[i] |= OLDSTATE_WANT_DOWN_OR_RESTART | OLDSTATE_INCLUDE_IN_DOWN_TRANSITION ; /* disappeared */
+       continue ;
+     }
+     if (data.len & 3) strerr_dief3x(4, "invalid resolve database in ", newfn, "/resolve.cdb") ;
+     if (data.len >> 2 > newn)
+       strerr_dief3x(4, "invalid resolve database in ", newfn, "/resolve.cdb") ;
+-    if (data.len == 4) oldstate[i] |= 8 ;
++    if (data.len == 4) oldstate[i] |= OLDSTATE_CONVERTS_TO_ATOMIC_OR_SINGLETON_BUNDLE ;
+     while (data.len)
+     {
+       uint32_t x ;
+       uint32_unpack_big(data.s, &x) ; data.s += 4 ; data.len -= 4 ;
+       if (x >= newn)
+         strerr_dief3x(4, "invalid resolve database in ", newfn, "/resolve.cdb") ;
+-      if (newstate[x] & 8)
++      if (newstate[x] & NEWSTATE_IS_CONVERSION_TARGET)
+         strerr_diefu4x(6, "convert database: new service ", newdb->string + newdb->services[x].name, " is a target for more than one conversion, including old service ", olddb->string + olddb->services[i].name) ;
+-      newstate[x] |= 8 ;
++
++      newstate[x] |= NEWSTATE_IS_CONVERSION_TARGET ;
+       invimage[x] = i ;
+-      if (oldstate[i] & 16) newstate[x] |= 16 ;
++      if (oldstate[i] & OLDSTATE_HAS_NEW_NAME) newstate[x] |= NEWSTATE_CHANGED_NAMES ;
+       bitarray_set(conversion_table + i * bitarray_div8(newn), x) ;
+-      if (oldstate[i] & 8)
++      if (oldstate[i] & OLDSTATE_CONVERTS_TO_ATOMIC_OR_SINGLETON_BUNDLE)
+       {
+-        newstate[x] |= 4 ;
+-        if ((i < olddb->nlong) != (x < newdb->nlong)) oldstate[i] |= 4 ;
++        newstate[x] |= NEWSTATE_IS_BIJECTIVE_CONVERSION_TARGET ;
++
++        if ((i < olddb->nlong) != (x < newdb->nlong)) oldstate[i] |= OLDSTATE_RESTART ;
+       }
+     }
+   }
+@@ -222,7 +222,11 @@ static void compute_transitions (char const *convfile, unsigned char *oldstate,
+   {
+     int done = 1 ;
+     unsigned int i = newn ;
+-    while (i--) newstate[i] &= 28 ;
++    while (i--)
++      newstate[i] &=
++        ( NEWSTATE_IS_BIJECTIVE_CONVERSION_TARGET |
++          NEWSTATE_IS_CONVERSION_TARGET |
++          NEWSTATE_CHANGED_NAMES);
+ 
+    /*
+      If an old service needs to restart, mark it wanted down, as well
+@@ -232,11 +236,22 @@ static void compute_transitions (char const *convfile, unsigned char *oldstate,
+     i = oldn ;
+     while (i--)
+     {
+-      if (oldstate[i] & 1 && (oldstate[i] & 4 || !(oldstate[i] & 8)))
+-        oldstate[i] |= 34 ;
+-      else oldstate[i] &= 221 ;
++      if (oldstate[i] & OLDSTATE_WAS_UP &&
++          (oldstate[i] & OLDSTATE_RESTART ||
++           !(oldstate[i] & OLDSTATE_CONVERTS_TO_ATOMIC_OR_SINGLETON_BUNDLE)
++           ))
++        oldstate[i] |=
++          OLDSTATE_WANT_DOWN_OR_RESTART |
++          OLDSTATE_INCLUDE_IN_DOWN_TRANSITION;
++      else
++        oldstate[i] &=
++          ~(OLDSTATE_WANT_DOWN_OR_RESTART |
++            OLDSTATE_INCLUDE_IN_DOWN_TRANSITION);
+     }
+-    s6rc_graph_closure(olddb, oldstate, 5, 0) ;
++    s6rc_graph_closure(olddb,
++                       oldstate,
++                       OLDSTATE_WANT_DOWN_OR_RESTART_BITNO,
++                       0) ;
+ 
+ 
+    /*
+@@ -247,12 +262,16 @@ static void compute_transitions (char const *convfile, unsigned char *oldstate,
+    */
+ 
+     i = oldn ;
+-    while (i--) if (oldstate[i] & 1)
+-    {
+-      unsigned int j = newn ;
+-      while (j--) if (bitarray_peek(conversion_table + i * newm, j))
+-        newstate[j] |= (oldstate[i] & 32) ? 2 : 33 ;
+-    }
++    while (i--)
++      if (oldstate[i] & OLDSTATE_WAS_UP) {
++        unsigned int j = newn ;
++        while (j--)
++          if (bitarray_peek(conversion_table + i * newm, j))
++            newstate[j] |=
++              (oldstate[i] & OLDSTATE_WANT_DOWN_OR_RESTART)
++              ? NEWSTATE_INCLUDE_IN_UP_TRANSITION
++              : (NEWSTATE_WAS_UP | NEWSTATE_WANT_UP_AFTER_CLOSURE) ;
++      }
+ 
+ 
+    /*
+@@ -261,17 +280,23 @@ static void compute_transitions (char const *convfile, unsigned char *oldstate,
+      restart and loop until there are no new dependencies.
+    */
+ 
+-    s6rc_graph_closure(newdb, newstate, 5, 1) ;
++    s6rc_graph_closure(newdb, newstate, NEWSTATE_WANT_UP_AFTER_CLOSURE_BITNO, 1) ;
+     i = newn ;
+-    while (i--) if ((newstate[i] & 33) == 32)
+-    {
+-      done = 0 ;
+-      newstate[i] |= 128U ;
+-    }
++    while (i--)
++      if ( (newstate[i] & NEWSTATE_WANT_UP_AFTER_CLOSURE) &&
++          !(newstate[i] & NEWSTATE_WAS_UP)) {
++        done = 0 ;
++        newstate[i] |= NEWSTATE_DEPENDS_ON_A_NEW_SERVICE ;
++      }
+     if (done) break ;
+-    s6rc_graph_closure(newdb, newstate, 7, 0) ;
++
++    s6rc_graph_closure(newdb, newstate, NEWSTATE_DEPENDS_ON_A_NEW_SERVICE_BITNO, 0) ;
++
+     i = newn ;
+-    while (i--) if ((newstate[i] & 129U) == 129U) oldstate[invimage[i]] |= 4 ;
++    while (i--)
++      if ((newstate[i] & NEWSTATE_WAS_UP) &&
++          (newstate[i] & NEWSTATE_DEPENDS_ON_A_NEW_SERVICE))
++        oldstate[invimage[i]] |= OLDSTATE_RESTART ;
+   }
+ }
+ 
+@@ -291,9 +316,9 @@ static inline void rollback_servicedirs (char const *newlive, unsigned char cons
+     memcpy(newfn, newlive, newllen) ;
+     memcpy(newfn + newllen, "/servicedirs/", 13) ;
+     memcpy(newfn + newllen + 13, newdb->string + newdb->services[i].name, newnamelen + 1) ;
+-    if (newstate[i] & 1)
++    if (newstate[i] & NEWSTATE_WAS_UP)
+     {
+-      char const *oldname = newstate[i] & 8 ? olddb->string + olddb->services[invimage[i]].name : newdb->string + newdb->services[i].name ;
++      char const *oldname = newstate[i] & NEWSTATE_IS_CONVERSION_TARGET ? olddb->string + olddb->services[invimage[i]].name : newdb->string + newdb->services[i].name ;
+       size_t oldnamelen = strlen(oldname) ;
+       char oldfn[livelen + 23 + oldnamelen] ;
+       memcpy(oldfn, live, livelen) ;
+@@ -327,7 +352,7 @@ static inline void make_new_livedir (unsigned char const *oldstate, s6rc_db_t co
+     if (r < 0) strerr_diefu2sys(111, "readlink ", sdlink) ;
+     if (r >= SKALIBS_PATH_MAX - 1) strerr_dief3x(100, "target for ", sdlink, " is too long") ;
+     sdtarget[r] = 0 ;
+-    while (i--) tmpstate[i] = newstate[i] & 1 ;
++    while (i--) tmpstate[i] = newstate[i] & NEWSTATE_WAS_UP ;
+     if (!s6rc_livedir_create(sa, live, PROG, sdtarget, prefix, newcompiled, tmpstate, newdb->nlong + newdb->nshort, &dirlen))
+       strerr_diefu1sys(111, "create new livedir") ;
+   }
+@@ -345,9 +370,9 @@ static inline void make_new_livedir (unsigned char const *oldstate, s6rc_db_t co
+     memcpy(newfn + newclen + 13, newdb->string + newdb->services[i].name, newnamelen + 1) ;
+     sa->len = sdlen ;
+     if (!stralloc_cats(sa, newdb->string + newdb->services[i].name) || !stralloc_0(sa)) goto rollback ;
+-    if (newstate[i] & 1)
++    if (newstate[i] & NEWSTATE_WAS_UP)
+     {
+-      char const *oldname = newstate[i] & 8 ? olddb->string + olddb->services[invimage[i]].name : newdb->string + newdb->services[i].name ;
++      char const *oldname = newstate[i] & NEWSTATE_IS_CONVERSION_TARGET ? olddb->string + olddb->services[invimage[i]].name : newdb->string + newdb->services[i].name ;
+       size_t oldnamelen = strlen(oldname) ;
+       char oldfn[livelen + 14 + oldnamelen] ;
+       memcpy(oldfn, live, livelen) ;
+@@ -381,7 +406,11 @@ static inline void make_new_livedir (unsigned char const *oldstate, s6rc_db_t co
+  /* scandir cleanup, then old livedir cleanup */
+   i = olddb->nlong ;
+   while (i--)
+-    s6rc_servicedir_unsupervise(sa->s, prefix, olddb->string + olddb->services[i].name, (oldstate[i] & 33) == 1) ;
++    s6rc_servicedir_unsupervise(sa->s,
++                                prefix,
++                                olddb->string + olddb->services[i].name,
++                                (oldstate[i] & OLDSTATE_WAS_UP) &&
++                                !(oldstate[i] & OLDSTATE_WANT_DOWN_OR_RESTART)) ;
+   rm_rf_in_tmp(sa, 0) ;
+   sa->len = 0 ;
+   return ;
+@@ -405,7 +434,7 @@ static inline int delete_unused_pipes (s6_fdholder_t *a, s6rc_db_t const *olddb,
+ {
+   unsigned int i = olddb->nlong ;
+   while (i--)
+-    if (!(oldstate[i] & 8) && olddb->services[i].x.longrun.nproducers)
++    if (!(oldstate[i] & OLDSTATE_CONVERTS_TO_ATOMIC_OR_SINGLETON_BUNDLE) && olddb->services[i].x.longrun.nproducers)
+     {
+       size_t len = strlen(olddb->string + olddb->services[i].name) ;
+       char pipename[len + 13] ;
+@@ -426,7 +455,9 @@ static inline int rename_pipes (s6_fdholder_t *a, s6rc_db_t const *olddb, s6rc_d
+   unsigned int i = newdb->nlong ;
+   while (i--)
+   {
+-    if ((newstate[i] & 20) == 20 && newdb->services[i].x.longrun.nproducers)
++    if ((newstate[i] & NEWSTATE_CHANGED_NAMES) &&
++        (newstate[i] & NEWSTATE_IS_BIJECTIVE_CONVERSION_TARGET) &&
++        newdb->services[i].x.longrun.nproducers)
+     {
+       int fd ;
+       size_t oldlen = strlen(olddb->string + olddb->services[invimage[i]].name) ;
+@@ -472,7 +503,8 @@ static inline int create_new_pipes (s6_fdholder_t *a, s6rc_db_t const *newdb, un
+   nano1.nano = 1 ;
+   while (i--)
+   {
+-    if (!(newstate[i] & 4) && newdb->services[i].x.longrun.nproducers)
++    if (!(newstate[i] & NEWSTATE_IS_BIJECTIVE_CONVERSION_TARGET) &&
++        newdb->services[i].x.longrun.nproducers)
+     {
+       int p[2] ;
+       size_t len = strlen(newdb->string + newdb->services[i].name) ;
+@@ -516,7 +548,7 @@ static inline void update_fdholder (s6rc_db_t const *olddb, unsigned char const
+ {
+   s6_fdholder_t a = S6_FDHOLDER_ZERO ;
+   char fnsocket[livelen + sizeof("/servicedirs/" S6RC_FDHOLDER "/s")] ;
+-  if (!(newstate[1] & 1)) return ;
++  if (!(newstate[1] & NEWSTATE_WAS_UP)) return ;
+   memcpy(fnsocket, live, livelen) ;
+   memcpy(fnsocket + livelen, "/servicedirs/" S6RC_FDHOLDER "/s", sizeof("/servicedirs/" S6RC_FDHOLDER "/s")) ;
+   if (!s6_fdholder_start_g(&a, fnsocket, deadline)) goto hammer ;
+@@ -692,7 +724,7 @@ int main (int argc, char const *const *argv, char const *const *envp)
+         if (rr < oldn) strerr_diefu2x(4, "read valid db in ", dbfn) ;
+       }
+       r = oldn ;
+-      while (r--) oldstate[r] &= 1 ;
++      while (r--) oldstate[r] &= OLDSTATE_WAS_UP ;
+       memset(newstate, 0, newn) ;
+       r = newn ;
+       while (r--) invimage[r] = olddb.nlong + olddb.nshort ;
+@@ -735,8 +767,9 @@ int main (int argc, char const *const *argv, char const *const *envp)
+         newargv[m++] = "-d" ;
+         newargv[m++] = "--" ;
+         newargv[m++] = "change" ;
+-        while (i--) if (oldstate[i] & 2)
+-          newargv[m++] = olddb.string + olddb.services[i].name ;
++        while (i--)
++          if (oldstate[i] & OLDSTATE_INCLUDE_IN_DOWN_TRANSITION)
++            newargv[m++] = olddb.string + olddb.services[i].name ;
+         newargv[m++] = 0 ;
+         if (verbosity >= 2)
+           strerr_warni1x("stopping services in the old database") ;
+@@ -819,7 +852,7 @@ int main (int argc, char const *const *argv, char const *const *envp)
+         newargv[m++] = "-u" ;
+         newargv[m++] = "--" ;
+         newargv[m++] = "change" ;
+-        while (i--) if (newstate[i] & 2)
++        while (i--) if (newstate[i] & NEWSTATE_INCLUDE_IN_UP_TRANSITION)
+           newargv[m++] = newdb.string + newdb.services[i].name ;
+         newargv[m++] = 0 ;
+         if (verbosity >= 2)
+-- 
+2.41.0
+

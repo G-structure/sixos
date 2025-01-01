@@ -1,0 +1,142 @@
+From c3ad5330deff24235abca33299ae6015f0bad509 Mon Sep 17 00:00:00 2001
+From: Adam Joseph <adam@westernsemico.com>
+Date: Mon, 25 Sep 2023 03:26:34 -0700
+Subject: [PATCH 06/10] [WIP] s6-rc-update.c: add additional comments
+
+This commit adds additional explanatory comments for parts of
+s6-rc-update.c that did not seem immediately obvious to me.
+
+It is probably not appropriate to apply this commit verbatim in its current
+form.  Feel free to pick changes from it selectively.
+
+Signed-off-by: Adam Joseph <adam@westernsemico.com>
+---
+ src/s6-rc/s6-rc-update.c | 43 ++++++++++++++++++++++++++++++++++------
+ 1 file changed, 37 insertions(+), 6 deletions(-)
+
+diff --git a/src/s6-rc/s6-rc-update.c b/src/s6-rc/s6-rc-update.c
+index e0726a2..240a256 100644
+--- a/src/s6-rc/s6-rc-update.c
++++ b/src/s6-rc/s6-rc-update.c
+@@ -51,6 +51,7 @@ static unsigned int verbosity = 1 ;
+ #define OLDSTATE_WAS_UP 1
+ #define OLDSTATE_INCLUDE_IN_DOWN_TRANSITION 2
+ #define OLDSTATE_RESTART 4
++/* or, equivalently, "converts to a multi-element bundle" */
+ #define OLDSTATE_CONVERTS_TO_ATOMIC_OR_SINGLETON_BUNDLE 8
+ #define OLDSTATE_HAS_NEW_NAME 16
+ #define OLDSTATE_WANT_DOWN_OR_RESTART 32
+@@ -60,6 +61,11 @@ static unsigned int verbosity = 1 ;
+ #define NEWSTATE_WAS_UP 1
+ #define NEWSTATE_INCLUDE_IN_UP_TRANSITION 2
+ #define NEWSTATE_IS_BIJECTIVE_CONVERSION_TARGET 4
++/*
++  this flag is set for:
++  - anything which is the target of a rename in the convfile
++  - the contents of bundles which are the targets of renames
++*/
+ #define NEWSTATE_IS_CONVERSION_TARGET 8
+ #define NEWSTATE_CHANGED_NAMES 16
+ #define NEWSTATE_WANT_UP_AFTER_CLOSURE_BITNO 5
+@@ -183,6 +189,12 @@ static inline void fill_convtable_and_flags (unsigned char *conversion_table, un
+       if (newstate[x] & NEWSTATE_IS_CONVERSION_TARGET)
+         strerr_diefu4x(6, "convert database: new service ", newdb->string + newdb->services[x].name, " is a target for more than one conversion, including old service ", olddb->string + olddb->services[i].name) ;
+ 
++      /*
++        Note: the following will fail if you have a singleton bundle
++        and try to rename both the bundle and the thing it contains
++        in the same s6-rc-update invocation.  Parts of this loop
++        should probably be skipped for singleton bundles.
++      */
+       newstate[x] |= NEWSTATE_IS_CONVERSION_TARGET ;
+       invimage[x] = i ;
+       if (oldstate[i] & OLDSTATE_HAS_NEW_NAME) newstate[x] |= NEWSTATE_CHANGED_NAMES ;
+@@ -191,6 +203,8 @@ static inline void fill_convtable_and_flags (unsigned char *conversion_table, un
+       {
+         newstate[x] |= NEWSTATE_IS_BIJECTIVE_CONVERSION_TARGET ;
+ 
++        /* The following line forces a restart when a oneshot
++           converts to a longrun or vice versa. */
+         if ((i < olddb->nlong) != (x < newdb->nlong)) oldstate[i] |= OLDSTATE_RESTART ;
+       }
+     }
+@@ -229,8 +243,9 @@ static void compute_transitions (char const *convfile, unsigned char *oldstate,
+           NEWSTATE_CHANGED_NAMES);
+ 
+    /*
+-     If an old service needs to restart, mark it wanted down, as well
+-     as everything that depends on it.
++     If an old service was up and either needs to restart or
++     converts to an atomic or converts to a singleton, then: mark it
++     wanted down, as well as everything that depends on it.
+    */
+ 
+     i = oldn ;
+@@ -238,6 +253,11 @@ static void compute_transitions (char const *convfile, unsigned char *oldstate,
+     {
+       if (oldstate[i] & OLDSTATE_WAS_UP &&
+           (oldstate[i] & OLDSTATE_RESTART ||
++           /*
++             The following clause deals with the situation where
++             you convert an atomic or singleton bundle into a
++             multi-element bundle
++           */
+            !(oldstate[i] & OLDSTATE_CONVERTS_TO_ATOMIC_OR_SINGLETON_BUNDLE)
+            ))
+         oldstate[i] |=
+@@ -255,7 +275,7 @@ static void compute_transitions (char const *convfile, unsigned char *oldstate,
+ 
+ 
+    /*
+-      Convert the old state to the new state: if an old service is up,
++      Convert the old state to the new state: if an old service was up,
+       the new service will be either up or wanted up.
+    */
+ 
+@@ -277,6 +297,7 @@ static void compute_transitions (char const *convfile, unsigned char *oldstate,
+      restart and loop until there are no new dependencies.
+    */
+ 
++    /* For every service wanted up, propagate that marking to its dependencies. */
+     s6rc_graph_closure(newdb, newstate, NEWSTATE_WANT_UP_AFTER_CLOSURE_BITNO, 1) ;
+     i = newn ;
+     while (i--)
+@@ -287,8 +308,12 @@ static void compute_transitions (char const *convfile, unsigned char *oldstate,
+       }
+     if (done) break ;
+ 
++    /* For every service marked "depends on a new service", mark
++       services which depend upon the same way */
+     s6rc_graph_closure(newdb, newstate, NEWSTATE_DEPENDS_ON_A_NEW_SERVICE_BITNO, 0) ;
+ 
++    /* For every service which acquires a new dependency (one which
++       did not previously exist), force it to restart. */
+     i = newn ;
+     while (i--)
+       if ((newstate[i] & NEWSTATE_WAS_UP) &&
+@@ -401,13 +426,19 @@ static inline void make_new_livedir (unsigned char const *oldstate, s6rc_db_t co
+   if (verbosity >= 2) strerr_warni1x("successfully switched to new database") ;
+ 
+  /* scandir cleanup, then old livedir cleanup */
++
+   i = olddb->nlong ;
+-  while (i--)
++  while (i--) {
++    /* If an old service survived without needing a restart, do not
++       kill its supervisor */
++    unsigned int keepsupervisor =
++      (oldstate[i] & OLDSTATE_WAS_UP) &&
++      !(oldstate[i] & OLDSTATE_WANT_DOWN_OR_RESTART);
+     s6rc_servicedir_unsupervise(sa->s,
+                                 prefix,
+                                 olddb->string + olddb->services[i].name,
+-                                (oldstate[i] & OLDSTATE_WAS_UP) &&
+-                                !(oldstate[i] & OLDSTATE_WANT_DOWN_OR_RESTART)) ;
++                                keepsupervisor);
++  }
+   rm_rf_in_tmp(sa, 0) ;
+   sa->len = 0 ;
+   return ;
+-- 
+2.41.0
+

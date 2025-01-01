@@ -1,0 +1,41 @@
+From 2ed15d621e9f4fa0ccf07f1779b694df26c0bad9 Mon Sep 17 00:00:00 2001
+From: Adam Joseph <adam@westernsemico.com>
+Date: Thu, 28 Sep 2023 13:12:10 -0700
+Subject: [PATCH 10/10] disable restart-if-acquired-new-dependency behavior
+
+---
+ src/s6-rc/s6-rc-update.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/src/s6-rc/s6-rc-update.c b/src/s6-rc/s6-rc-update.c
+index f68c4a9..02c925d 100644
+--- a/src/s6-rc/s6-rc-update.c
++++ b/src/s6-rc/s6-rc-update.c
+@@ -335,7 +335,9 @@ static void compute_transitions (char const *convfile, unsigned char *oldstate,
+     while (i--)
+       if ( (newstate[i] & NEWSTATE_WANT_UP_AFTER_CLOSURE) &&
+           !(newstate[i] & NEWSTATE_WAS_UP)) {
++/*
+         done = 0 ;
++*/
+         newstate[i] |= NEWSTATE_DEPENDS_ON_A_NEW_SERVICE ;
+       }
+     if (done) break ;
+@@ -346,11 +348,13 @@ static void compute_transitions (char const *convfile, unsigned char *oldstate,
+ 
+     /* For every service which acquires a new dependency (one which
+        did not previously exist), force it to restart. */
++/*
+     i = newn ;
+     while (i--)
+       if ((newstate[i] & NEWSTATE_WAS_UP) &&
+           (newstate[i] & NEWSTATE_DEPENDS_ON_A_NEW_SERVICE))
+-        oldstate[invimage[i]] |= OLDSTATE_RESTART ;
++        oldstate[invimage[i]] |= OLDSTATE_UNPROPAGATED_RESTART ;
++*/
+   }
+ }
+ 
+-- 
+2.41.0
+

@@ -1,0 +1,152 @@
+From b8128eb74e69842f12a3e6e3eed03dcd205ca287 Mon Sep 17 00:00:00 2001
+From: Adam Joseph <adam@westernsemico.com>
+Date: Thu, 28 Sep 2023 13:11:56 -0700
+Subject: [PATCH 09/10] add OLDSTATE_UNPROPAGATED_RESTART
+
+---
+ src/s6-rc/s6-rc-update.c | 81 ++++++++++++++++++++++++++++++++++++----
+ 1 file changed, 74 insertions(+), 7 deletions(-)
+
+diff --git a/src/s6-rc/s6-rc-update.c b/src/s6-rc/s6-rc-update.c
+index 96fb00f..f68c4a9 100644
+--- a/src/s6-rc/s6-rc-update.c
++++ b/src/s6-rc/s6-rc-update.c
+@@ -57,6 +57,7 @@ static unsigned int verbosity = 1 ;
+ #define OLDSTATE_WANT_DOWN_OR_RESTART 32
+ #define OLDSTATE_WANT_DOWN_OR_RESTART_BITNO 5
+ #define OLDSTATE_APPEARS_IN_CONVFILE 64
++#define OLDSTATE_UNPROPAGATED_RESTART 128U
+ 
+ #define NEWSTATE_WAS_UP 1
+ #define NEWSTATE_INCLUDE_IN_UP_TRANSITION 2
+@@ -221,7 +222,16 @@ static inline void fill_convtable_and_flags (unsigned char *conversion_table, un
+             back to an fdup() of the supervisor's stdin.  The only way to make
+             these changes is by restarting the service.
+           */
+-          oldstate[i] |= OLDSTATE_RESTART ;
++          oldstate[i] |= OLDSTATE_UNPROPAGATED_RESTART ;
++        }
++
++        /*
++          Likewise we need to restart a service if it its number of consumers
++          (which can be only 0 or 1) changed.
++        */
++        if ( (olddb->services[i].x.longrun.consumer < olddb->nlong) !=
++             (newdb->services[x].x.longrun.consumer < newdb->nlong) ) {
++          oldstate[i] |= OLDSTATE_UNPROPAGATED_RESTART ;
+         }
+ 
+         /* The following line forces a restart when a oneshot
+@@ -305,7 +315,8 @@ static void compute_transitions (char const *convfile, unsigned char *oldstate,
+       if (newstate[i] & NEWSTATE_IS_CONVERSION_TARGET) {
+         if (oldstate[invimage[i]] & OLDSTATE_WAS_UP) {
+             newstate[i] |=
+-              (oldstate[invimage[i]] & OLDSTATE_WANT_DOWN_OR_RESTART)
++              (oldstate[invimage[i]] & OLDSTATE_WANT_DOWN_OR_RESTART) ||
++              (oldstate[invimage[i]] & OLDSTATE_UNPROPAGATED_RESTART)
+               ? NEWSTATE_INCLUDE_IN_UP_TRANSITION
+               : (NEWSTATE_WAS_UP | NEWSTATE_WANT_UP_AFTER_CLOSURE) ;
+         }
+@@ -454,7 +465,9 @@ static inline void make_new_livedir (unsigned char const *oldstate, s6rc_db_t co
+        kill its supervisor */
+     unsigned int keepsupervisor =
+       (oldstate[i] & OLDSTATE_WAS_UP) &&
+-      !(oldstate[i] & OLDSTATE_WANT_DOWN_OR_RESTART);
++      !(oldstate[i] & OLDSTATE_WANT_DOWN_OR_RESTART) &&
++      !(oldstate[i] & OLDSTATE_UNPROPAGATED_RESTART)
++      ;
+     s6rc_servicedir_unsupervise(sa->s,
+                                 prefix,
+                                 olddb->string + olddb->services[i].name,
+@@ -633,10 +646,10 @@ static inline void update_fdholder (s6rc_db_t const *olddb, unsigned char const
+  /* Main */
+ 
+ 
+-static unsigned int want_count (unsigned char const *state, unsigned int n)
++static unsigned int want_count (unsigned char const *state, unsigned int n, unsigned int mask)
+ {
+   unsigned int count = 0, i = n ;
+-  while (i--) if (state[i] & 2) count++ ;
++  while (i--) if (state[i] & mask) count++ ;
+   return count ;
+ }
+ 
+@@ -790,7 +803,7 @@ int main (int argc, char const *const *argv, char const *const *envp)
+      /* Down transition */
+ 
+       {
+-        char const *newargv[12 + (dryrun * 4) + want_count(oldstate, oldn)] ;
++        char const *newargv[12 + (dryrun * 4) + want_count(oldstate, oldn, OLDSTATE_INCLUDE_IN_DOWN_TRANSITION)] ;
+         unsigned int m = 0, i = oldn ;
+         int wstat ;
+         char vfmt[UINT_FMT] ;
+@@ -872,11 +885,65 @@ int main (int argc, char const *const *argv, char const *const *envp)
+         }
+       }
+ 
++     /*
++       Unpropagated restarts -- we have to do these after changing the scandirs,
++       because they need to pick up changes to the run wrapper.
++     */
++
++      {
++        unsigned int i = newn ;
++        if (verbosity >= 2)
++          strerr_warni1x("restarting services in the new database") ;
++        while (i--) {
++          unsigned int m = 0;
++          if (!(newstate[i] & NEWSTATE_IS_CONVERSION_TARGET)) continue;
++          if (!(oldstate[invimage[i]] & OLDSTATE_UNPROPAGATED_RESTART)) continue;
++          if (oldstate[invimage[i]] & OLDSTATE_INCLUDE_IN_DOWN_TRANSITION) continue;
++          char const *newname = newdb.string + newdb.services[i].name;
++          size_t newnamelen = strlen(newname) ;
++          char newfn[livelen + 14 + newnamelen] ;
++          memcpy(newfn, live, livelen) ;
++          memcpy(newfn + livelen, "/servicedirs/", 13) ;
++          memcpy(newfn + livelen + 13, newname, newnamelen + 1) ;
++          char const *newargv[10 + (dryrun * 5)] ;
++          int wstat ;
++          char vfmt[UINT_FMT] ;
++          char tfmt[UINT_FMT] ;
++          vfmt[uint_fmt(vfmt, verbosity)] = 0 ;
++          fill_tfmt(tfmt, &deadline) ;
++          if (dryrun)
++            {
++              newargv[m++] = S6RC_BINPREFIX "s6-rc-dryrun" ;
++              newargv[m++] = "-v" ;
++              newargv[m++] = vfmt ;
++              newargv[m++] = "-t0" ;
++              newargv[m++] = "--" ;
++            }
++          newargv[m++] = S6_EXTBINPREFIX "s6-svc" ;
++          newargv[m++] = "-T" ;
++          newargv[m++] = tfmt ;
++          newargv[m++] = "-r" ;   /* if up, send restart signals */
++          newargv[m++] = "-u" ;   /* if down, start */
++          newargv[m++] = "-wr" ;  /* wait for readiness */
++          newargv[m++] = newfn;
++          newargv[m++] = 0 ;
++          pid = child_spawn0(newargv[0], newargv, envp) ;
++          if (!pid) strerr_diefu2sys(111, "spawn ", newargv[0]) ;
++          if (wait_pid(pid, &wstat) < 0) strerr_diefu1sys(111, "waitpid") ;
++          tain_now_g() ;
++          if (WIFSIGNALED(wstat) || WEXITSTATUS(wstat))
++            {
++              wstat = wait_estatus(wstat) ;
++              if (wstat == 1 || wstat == 2) wstat += 8 ;
++              strerr_dief1x(wstat, "s6-svc invocation failed") ;
++            }
++        }
++      }
+ 
+      /* Up transition */
+ 
+       {
+-        char const *newargv[12 + (dryrun * 4) + want_count(newstate, newn)] ;
++        char const *newargv[12 + (dryrun * 4) + want_count(newstate, newn, NEWSTATE_INCLUDE_IN_UP_TRANSITION)] ;
+         unsigned int m = 0, i = newn ;
+         char vfmt[UINT_FMT] ;
+         char tfmt[UINT_FMT] ;
+-- 
+2.41.0
+

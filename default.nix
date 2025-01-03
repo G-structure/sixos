@@ -87,16 +87,14 @@ let
       ];
   };
 
-  site' = site {
-    inherit lib util yants infuse sw readTree;
-  };
-
   # attrset mapping each gnu-config canonical name to the outpath
   # which will be used as /run/current-system/sw (what NixOS calls
   # `environment.systemPackages`)
   sw = { };
-in
-let
+
+  # why, oh why, does nix not allow shadowing?
+  site' = site { inherit lib util yants infuse sw readTree; };
+in let
 
   # To avoid the site repository needing to fetchGit readTree and
   # yants, we optionally allow the hosts and tags attrsets to be
@@ -121,8 +119,6 @@ let
     tags = maybe-invoke-readTree site'.tags;
   };
 
-in let
-
   root = readTree.fix (self: (readTree {
     args = {
       root = self;
@@ -143,147 +139,153 @@ in let
           host_prev:
           host_prev // (f hosts.${name} host_prev)));
 
+  overlays = [
+
+    # initial host set: populate attrnames from site.hosts
+    (final: prev:
+      lib.mapAttrs
+        (name: _: prev.${name} or {})
+        site.hosts
+    )
+
+    # add in the `name`, `pkgs`, `tags`, and (optional) `hostid` attributes
+    (final: prev:
+      lib.flip lib.mapAttrs prev
+        (name: host: host // {
+          inherit name;
+          pkgs = pkgsOn host.canonical;
+          tags = lib.mapAttrsRecursive (_: _: false) site.tags;
+        } // lib.optionalAttrs (host?hostid) {
+          inherit (host) hostid;
+        })
+    )
+
+    # build the ifconns and interfaces attributes
+    (forall-hosts (final: prev:
+      let
+        ifconns =
+          # all the subnets to which it is directly attached.
+          lib.pipe site.subnets [
+            (
+              lib.mapAttrs (subnetName: subnet:
+                lib.pipe subnet [
+                  # drop the __netmask key, which is not a host
+                  (lib.filterAttrs (hostName: _:
+                    !(lib.strings.hasPrefix "__" hostName)
+                  ))
+
+                  # add ${host}.netmask
+                  (lib.mapAttrs
+                    (hostName: ifconn: {
+                      netmask = subnet.__netmask;
+                    } // ifconn))
+                ])
+            )
+            (lib.mapAttrsToList
+              (subnetName: subnet:
+                if subnet?${prev.name}
+                then lib.nameValuePair subnetName subnet.${prev.name}
+                else null))
+            (lib.filter (v: v!=null))
+            lib.listToAttrs
+          ];
+        interfaces =
+          { lo.type = "loopback"; } //
+          lib.pipe ifconns [
+            (lib.mapAttrsToList
+              (subnetName: ifconn:
+                if ifconn?ifname
+                then lib.nameValuePair ifconn.ifname ({
+                  subnet = subnetName;
+                } // lib.optionalAttrs (site.subnets.${subnetName}?__type) {
+                  type = site.subnets.${subnetName}.__type;
+                })
+                else null))
+            (lib.filter (v: v!=null))
+            lib.listToAttrs
+          ];
+      in prev // { inherit ifconns interfaces; }
+    ))
+
+    # boot stage
+  ] ++ (import ./boot.nix {
+    inherit lib forall-hosts infuse six-initrd;
+  }) ++ [
+
+    # arch stage
+    (forall-hosts
+      (final: prev: infuse prev
+        ({
+          mips64el-unknown-linux-gnuabi64 =
+            import ./arch/mips64 {
+              inherit sw final infuse;
+              inherit (prev) name;
+            };
+          powerpc64le-unknown-linux-gnu =
+            import ./arch/powerpc64 {
+              inherit sw final infuse;
+              inherit (prev) name;
+            };
+          aarch64-unknown-linux-gnu =
+            import ./arch/arm64 {
+              inherit lib sw final infuse;
+              inherit (prev) name;
+              inherit (final) tags;
+            };
+        }.${prev.canonical or ""} or [])
+      ))
+
+    (final: prev:
+      lib.pipe site.hosts [
+        (builtins.mapAttrs
+          (name: host:
+            host {
+              inherit name;
+              # FIXME: should fixpoint the whole site, not just site.hosts
+              site.hosts = final;
+              host = final.${name};
+            })
+        )
+        (infuse prev)
+      ])
+
+  ] ++ (lib.pipe site.tags [
+    (lib.filterAttrs (n: _: !(lib.hasPrefix "__" n)))
+    (lib.mapAttrs
+      (tag: overlay:
+        (forall-hosts
+          (final: prev:
+            if prev.tags.${tag}      # no `or` here; if attrs are missing it causes infinite recursion
+            then overlay final prev
+            else prev
+          ))))
+    lib.attrValues
+  ]) ++ [
+
+    (hosts: prev:
+      lib.flip lib.mapAttrs prev
+        (_: host:
+          host // {
+            configuration = import ./configuration.nix {
+              inherit yants lib infuse host;
+              overlays = host.service-overlays or [];
+            };
+          })
+    )
+  ];
+
 in {
 
-  host =
-    lib.mapAttrs
-      (hostName: host: root.types.host host)
-      (lib.fix
-        (final: lib.foldr lib.composeExtensions (_: _: {})
-          (lib.concatLists [
+  host = lib.pipe overlays [
 
-            # initial host set: populate attrnames from site.hosts
-            [(final: prev:
-              lib.mapAttrs
-                (name: _: prev.${name} or {})
-                site.hosts
-            )]
+    # compose the extensions into a single (final: prev: ...)
+    (lib.foldr lib.composeExtensions (_: _: {}))
 
-            # add in the `name`, `pkgs`, `tags`, and (optional) `hostid` attributes
-            [(final: prev:
-              lib.flip lib.mapAttrs prev
-                (name: host: host // {
-                  inherit name;
-                  pkgs = pkgsOn host.canonical;
-                  tags = lib.mapAttrsRecursive (_: _: false) site.tags;
-                } // lib.optionalAttrs (host?hostid) {
-                  inherit (host) hostid;
-                })
-            )]
+    # tie the fixpoint knot
+    (composed: lib.fix (final: composed final {}))
 
-            # build the ifconns and interfaces attributes
-            [(forall-hosts (final: prev:
-              let
-                ifconns =
-                  # all the subnets to which it is directly attached.
-                  lib.pipe site.subnets [
-                    (
-                      lib.mapAttrs (subnetName: subnet:
-                        lib.pipe subnet [
-                          # drop the __netmask key, which is not a host
-                          (lib.filterAttrs (hostName: _:
-                            !(lib.strings.hasPrefix "__" hostName)
-                          ))
+    # typecheck the result
+    (lib.mapAttrs (hostName: host: root.types.host host))
+  ];
 
-                          # add ${host}.netmask
-                          (lib.mapAttrs
-                            (hostName: ifconn: {
-                              netmask = subnet.__netmask;
-                            } // ifconn))
-                        ])
-                    )
-                    (lib.mapAttrsToList
-                      (subnetName: subnet:
-                        if subnet?${prev.name}
-                        then lib.nameValuePair subnetName subnet.${prev.name}
-                        else null))
-                    (lib.filter (v: v!=null))
-                    lib.listToAttrs
-                  ];
-                interfaces =
-                  { lo.type = "loopback"; } //
-                  lib.pipe ifconns [
-                    (lib.mapAttrsToList
-                      (subnetName: ifconn:
-                        if ifconn?ifname
-                        then lib.nameValuePair ifconn.ifname ({
-                          subnet = subnetName;
-                        } // lib.optionalAttrs (site.subnets.${subnetName}?__type) {
-                          type = site.subnets.${subnetName}.__type;
-                        })
-                        else null))
-                    (lib.filter (v: v!=null))
-                    lib.listToAttrs
-                  ];
-              in prev // { inherit ifconns interfaces; }
-            ))]
-
-            # boot stage
-            (import ./boot.nix {
-              inherit lib forall-hosts infuse six-initrd;
-            })
-
-            # arch stage
-            [(forall-hosts
-              (final: prev: infuse prev
-                ({
-                  mips64el-unknown-linux-gnuabi64 =
-                    import ./arch/mips64 {
-                      inherit sw final infuse;
-                      inherit (prev) name;
-                    };
-                  powerpc64le-unknown-linux-gnu =
-                    import ./arch/powerpc64 {
-                      inherit sw final infuse;
-                      inherit (prev) name;
-                    };
-                  aarch64-unknown-linux-gnu =
-                    import ./arch/arm64 {
-                      inherit lib sw final infuse;
-                      inherit (prev) name;
-                      inherit (final) tags;
-                    };
-                }.${prev.canonical or ""} or [])
-              ))]
-
-            [(final: prev:
-              lib.pipe site.hosts [
-                (builtins.mapAttrs
-                  (name: host:
-                    host {
-                      inherit name;
-                      # FIXME: should fixpoint the whole site, not just site.hosts
-                      site.hosts = final;
-                      host = final.${name};
-                    })
-                )
-                (infuse prev)
-              ])]
-
-            (lib.pipe site.tags [
-              (lib.filterAttrs (n: _: !(lib.hasPrefix "__" n)))
-              (lib.mapAttrs
-                (tag: overlay:
-                  (forall-hosts
-                    (final: prev:
-                      if prev.tags.${tag}      # no `or` here; if attrs are missing it causes infinite recursion
-                      then overlay final prev
-                      else prev
-                    ))))
-              lib.attrValues
-            ])
-
-            [(hosts: prev:
-              lib.flip lib.mapAttrs prev
-                (_: host:
-                  host // {
-                    configuration = import ./configuration.nix {
-                      inherit yants lib infuse host;
-                      overlays = host.service-overlays or [];
-                    };
-                  })
-            )]
-
-          ])
-          final {}));
 }

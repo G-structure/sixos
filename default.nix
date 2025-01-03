@@ -231,11 +231,21 @@ in {
               (final: prev: infuse prev
                 ({
                   mips64el-unknown-linux-gnuabi64 =
-                    import ./arch/mips64 { inherit sw final infuse; inherit (prev) name; };
+                    import ./arch/mips64 {
+                      inherit sw final infuse;
+                      inherit (prev) name;
+                    };
                   powerpc64le-unknown-linux-gnu =
-                    import ./arch/powerpc64 { inherit sw final infuse; inherit (prev) name; };
+                    import ./arch/powerpc64 {
+                      inherit sw final infuse;
+                      inherit (prev) name;
+                    };
                   aarch64-unknown-linux-gnu =
-                    import ./arch/arm64 { inherit lib sw final infuse; inherit (prev) name tags; };
+                    import ./arch/arm64 {
+                      inherit lib sw final infuse;
+                      inherit (prev) name;
+                      inherit (final) tags;
+                    };
                 }.${prev.canonical or ""} or [])
               ))]
 

@@ -42,7 +42,7 @@ let
     ifname = string;
     host = struct "host" {
       name = string;
-      canonical = string;   # gnu-config triple
+      canonical = string;      # gnu-config triple
       hostid = option string;  # identifier for diskless hosts
       tags = tags.type;
       interfaces = attrs interface;

@@ -55,6 +55,7 @@ let
         (name:
           host_prev:
           host_prev // (f hosts.${name} host_prev)));
+
 in {
   inherit canonicalize maybe-invoke-readTree forall-hosts;
 }

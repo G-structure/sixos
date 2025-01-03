@@ -81,27 +81,9 @@ let
   site' = site { inherit lib util yants infuse sw readTree; };
 in let
 
-  # To avoid the site repository needing to fetchGit readTree and
-  # yants, we optionally allow the hosts and tags attrsets to be
-  # passed as directories and invoke readTree on them.
-  maybe-invoke-readTree = arg:
-    if lib.isPath arg
-    then
-      lib.filterAttrsRecursive
-        (name: value: !(lib.hasPrefix "__readTree" name))
-        (readTree.fix (self: (readTree {
-          args = {
-            root = self;
-            inherit lib yants infuse sw util;
-          };
-          path = arg;
-          rootDir = false;
-        })))
-    else arg;
-
   site = site' // {
-    hosts = maybe-invoke-readTree site'.hosts;
-    tags = maybe-invoke-readTree site'.tags;
+    hosts = util.maybe-invoke-readTree { inherit lib yants infuse sw util; } site'.hosts;
+    tags  = util.maybe-invoke-readTree { inherit lib yants infuse sw util; } site'.tags;
   };
 
   root = readTree.fix (self: (readTree {

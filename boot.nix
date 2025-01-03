@@ -1,12 +1,12 @@
 { lib
-, forall-hosts
 , infuse
 , six-initrd
+, util
 }:
 
 # TODO: rename this file to initrd.nix
 
-[(forall-hosts
+[(util.forall-hosts
 
   # TODO: move this into arch/
   (final: prev:
@@ -51,7 +51,7 @@
   ))
 
  # basic minimal initrd
- (forall-hosts
+ (util.forall-hosts
    (final: prev: infuse prev {
      boot.initrd = _:
        (six-initrd {
@@ -62,7 +62,7 @@
   }))
 
  # abduco-enabled initrd
- (forall-hosts
+ (util.forall-hosts
   (final: prev: infuse prev ({
     boot.initrd.__input.contents = _:
       (six-initrd {
@@ -74,7 +74,7 @@
   })))
 
  # minimum necessary contents
- (forall-hosts
+ (util.forall-hosts
   (final: prev: let
     inherit (final) pkgs;
   in infuse prev ({
@@ -115,7 +115,7 @@
     });
   })))
 
- (forall-hosts
+ (util.forall-hosts
   (final: prev: let inherit (final) pkgs; in infuse prev ( {
     boot.initrd.__input.contents =
       let
@@ -165,7 +165,7 @@
   })))
 
  # cryptsetup-enabled initrd
- (forall-hosts
+ (util.forall-hosts
   (final: prev: let inherit (final) pkgs; in infuse prev ({
     boot.initrd.__input.contents = lib.optionalAttrs (!final.tags.is-nfsroot) {
       "early/run".__append = [''
@@ -199,7 +199,7 @@
   })))
 
  # lvm-enabled initrd
- (forall-hosts
+ (util.forall-hosts
   (final: prev: let inherit (final) pkgs; in infuse prev ( {
     boot.initrd.__input.contents = lib.optionalAttrs (!final.tags.is-nfsroot && !final.tags.dont-mount-root) {
       "early/run".__append = [''
@@ -214,7 +214,7 @@
   })))
 
  # switch_root into the chosen profile
- (forall-hosts
+ (util.forall-hosts
   (final: prev: let
     inherit (final) pkgs;
   in infuse prev ({

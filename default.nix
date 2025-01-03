@@ -61,32 +61,17 @@
 }:
 
 let
+  root = readTree.fix (self: (readTree {
+    args = {
+      root = self;
+      inherit yants lib infuse sw util readTree;
+      inherit (site) tags;
+    };
+    path = ./.;
+  }));
 
-  util = {
-    # copied from unmerged https://github.com/NixOS/nixpkgs/pull/235230
-    canonicalize = let
-      tripleFromSystem = { cpu, vendor, kernel, abi, ... } @ sys:
-        let
-          kernel' = lib.systems.parse.kernelName kernel;
-          optAbi = lib.optionalString (abi.name != "") "-${abi.name}";
-          optVendor = lib.optionalString (vendor.name != "") "-${vendor.name}";
-          optKernel = lib.optionalString (kernel' != "") "-${kernel'}";
-        in
-          # gnu-config considers "mingw32" and "cygwin" to be kernels.
-          # This is obviously bogus, which is why nixpkgs has historically
-          # parsed them differently.  However for regression testing
-          # reasons (see lib/tests/triples.nix) we need to replicate this
-          # quirk when unparsing in order to round-trip correctly.
-          if      abi == "cygnus"     then "${cpu.name}${optVendor}-cygwin"
-          else if kernel == "windows" then "${cpu.name}${optVendor}-mingw32"
-          else "${cpu.name}${optVendor}${optKernel}${optAbi}";
-    in
-      lib.flip lib.pipe [
-        lib.systems.parse.mkSystemFromString
-        tripleFromSystem
-      ];
-  };
-
+  inherit (root) util;
+  
   # attrset mapping each gnu-config canonical name to the outpath
   # which will be used as /run/current-system/sw (what NixOS calls
   # `environment.systemPackages`)
@@ -161,7 +146,7 @@ in let
     )
 
     # build the ifconns and interfaces attributes
-    (forall-hosts (final: prev:
+    (util.forall-hosts (final: prev:
       let
         ifconns =
           # all the subnets to which it is directly attached.
@@ -209,11 +194,11 @@ in let
 
     # boot stage
   ] ++ (import ./boot.nix {
-    inherit lib forall-hosts infuse six-initrd;
+    inherit lib infuse six-initrd util;
   }) ++ [
 
     # arch stage
-    (forall-hosts
+    (util.forall-hosts
       (final: prev: infuse prev
         ({
           mips64el-unknown-linux-gnuabi64 =
@@ -253,7 +238,7 @@ in let
     (lib.filterAttrs (n: _: !(lib.hasPrefix "__" n)))
     (lib.mapAttrs
       (tag: overlay:
-        (forall-hosts
+        (util.forall-hosts
           (final: prev:
             if prev.tags.${tag}      # no `or` here; if attrs are missing it causes infinite recursion
             then overlay final prev

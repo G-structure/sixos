@@ -84,17 +84,37 @@ let
       ];
   };
 
-  site' = site;
+  site' = site {
+    inherit lib util yants infuse sw readTree;
+  };
 
   # attrset mapping each gnu-config canonical name to the outpath
   # which will be used as /run/current-system/sw (what NixOS calls
   # `environment.systemPackages`)
   sw = { };
 in
-let site = site' {
-      inherit lib util yants infuse sw readTree;
-    }; in
 let
+
+  # To avoid the site repository needing to fetchGit readTree and
+  # yants, we optionally allow the hosts and tags attrsets to be
+  # passed as directories and invoke readTree on them.
+  maybe-invoke-readTree = arg:
+    if lib.isPath arg
+    then readTree.fix (self: (readTree {
+      args = {
+        root = self;
+        inherit lib yants infuse sw util;
+      };
+      path = arg;
+    }))
+    else arg;
+
+  site = site' // {
+    hosts = maybe-invoke-readTree site'.hosts;
+    tags = maybe-invoke-readTree site'.tags;
+  };
+
+in let
 
   root = readTree.fix (self: (readTree {
     args = {

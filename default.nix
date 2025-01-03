@@ -103,14 +103,17 @@ let
   # passed as directories and invoke readTree on them.
   maybe-invoke-readTree = arg:
     if lib.isPath arg
-    then readTree.fix (self: (readTree {
-      args = {
-        root = self;
-        inherit lib yants infuse sw util;
-      };
-      path = arg;
-      rootDir = false;
-    }))
+    then
+      lib.filterAttrsRecursive
+        (name: value: !(lib.hasPrefix "__readTree" name))
+        (readTree.fix (self: (readTree {
+          args = {
+            root = self;
+            inherit lib yants infuse sw util;
+          };
+          path = arg;
+          rootDir = false;
+        })))
     else arg;
 
   site = site' // {

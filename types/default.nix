@@ -44,7 +44,19 @@ let
       name = string;
       canonical = string;      # gnu-config triple
       hostid = option string;  # identifier for diskless hosts
-      tags = tags.type;
+      tags =
+        let
+          type' = name: val:
+            if val == false
+            then yants.bool
+            else if lib.isAttrs val
+            then yants.struct name
+              (lib.mapAttrs type' val)
+            else
+              throw "invalid type for tag defaults";
+        in
+          type' "tags" tags.defaults;
+
       interfaces = attrs interface;
       ifconns = attrs ifconn; # attrname is the subnet name; assumes (sensibly) maximum one interface per subnet
       pkgs = any;             # attrsof<pkg>

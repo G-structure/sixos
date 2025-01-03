@@ -31,7 +31,10 @@
   },
 
   readTree
-  ? import "${tvl-fyi}/nix/readTree" { },
+  ? import (builtins.fetchurl {
+    url = "https://code.tvl.fyi/plain/nix/readTree/default.nix?id=95d6b3754f933c035d1951f25419f797684c147d";
+    sha256 = "0f1lm7yfd5rfhiwj04s0fvyjy14ixw91m1n82pgj02p0yvzc7cg6";
+  }) {},
 
   yants
   ? import (builtins.fetchurl {
@@ -106,6 +109,7 @@ let
         inherit lib yants infuse sw util;
       };
       path = arg;
+      rootDir = false;
     }))
     else arg;
 

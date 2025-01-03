@@ -80,7 +80,7 @@
   in infuse prev ({
     boot.initrd.__input.compress = _: "gzip";
     boot.initrd.__input.contents = ({
-      "early/run"       = _: [''
+      "early/run".__append = [''
         modprobe btrfs || true # not sure why this is necessary
         modprobe ext4 || true  # sterling has rootfs as ext4
       ''] ++ lib.optionals final.tags.is-kgpe [''
@@ -92,7 +92,7 @@
       ''] ++ [''
         sleep 5  # yuck
       ''];
-      "early/fail"      = _: [''
+      "early/fail".__append = [''
         exec /bin/sh
 
       ''];

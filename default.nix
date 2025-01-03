@@ -165,7 +165,7 @@ in {
                 (name: host: host // {
                   inherit name;
                   pkgs = pkgsOn host.canonical;
-                  tags = site.tags.merge site.tags.defaults (site.assign.${name} or {});
+                  tags = site.tags.defaults;
                 } // lib.optionalAttrs (host?hostid) {
                   inherit (host) hostid;
                 })

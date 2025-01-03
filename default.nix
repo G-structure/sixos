@@ -218,9 +218,6 @@ in {
               in prev // { inherit ifconns interfaces; }
             ))]
 
-            # apply the site overlay
-            site.overlay
-
             # boot stage
             (import ./boot.nix {
               inherit lib forall-hosts infuse six-initrd;

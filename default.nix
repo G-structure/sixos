@@ -143,17 +143,6 @@ in let
           host_prev:
           host_prev // (f hosts.${name} host_prev)));
 
-  # initial hostset; this cannot be a fixpoint
-  initial =
-    lib.flip lib.mapAttrs site.canonicals
-      (name: canonical: {
-        inherit name canonical;
-        pkgs = pkgsOn canonical;
-        tags = site.tags.merge site.tags.defaults (site.assign.${name} or {});
-      } // lib.optionalAttrs (site?hostid.${name}) {
-        hostid = site.hostid.${name};
-      });
-
 in {
 
   host =
@@ -163,9 +152,28 @@ in {
         (final: lib.foldr lib.composeExtensions (_: _: {})
           (lib.concatLists [
 
+            # initial host set: populate attrnames from site.hosts
+            [(final: prev:
+              lib.mapAttrs
+                (name: _: prev.${name} or {})
+                site.hosts
+            )]
+
+            # add in the `name`, `pkgs`, `tags`, and (optional) `hostid` attributes
+            [(final: prev:
+              lib.flip lib.mapAttrs prev
+                (name: host: host // {
+                  inherit name;
+                  pkgs = pkgsOn host.canonical;
+                  tags = site.tags.merge site.tags.defaults (site.assign.${name} or {});
+                } // lib.optionalAttrs (host?hostid) {
+                  inherit (host) hostid;
+                })
+            )]
+
+            # build the ifconns and interfaces attributes
             [(forall-hosts (final: prev:
               let
-                hostName = prev.name;
                 ifconns =
                   # all the subnets to which it is directly attached.
                   lib.pipe site.subnets [
@@ -186,8 +194,8 @@ in {
                     )
                     (lib.mapAttrsToList
                       (subnetName: subnet:
-                        if subnet?${hostName}
-                        then lib.nameValuePair subnetName subnet.${hostName}
+                        if subnet?${prev.name}
+                        then lib.nameValuePair subnetName subnet.${prev.name}
                         else null))
                     (lib.filter (v: v!=null))
                     lib.listToAttrs
@@ -207,15 +215,18 @@ in {
                     (lib.filter (v: v!=null))
                     lib.listToAttrs
                   ];
-              in { inherit ifconns interfaces; }
+              in prev // { inherit ifconns interfaces; }
             ))]
 
+            # apply the site overlay
             site.overlay
 
+            # boot stage
             (import ./boot.nix {
               inherit lib forall-hosts infuse six-initrd;
             })
 
+            # arch stage
             [(forall-hosts
               (final: prev: infuse prev
                 ({
@@ -230,9 +241,15 @@ in {
 
             [(final: prev:
               lib.pipe site.hosts [
-                (lib.filterAttrs (_: v: v != null))
-                (lib.filterAttrs (n: _: !(lib.hasPrefix "__" n)))
-                (lib.mapAttrs (name: f: f { host = final.${name}; }))
+                (builtins.mapAttrs
+                  (name: host:
+                    host {
+                      inherit name;
+                      # FIXME: should fixpoint the whole site, not just site.hosts
+                      site.hosts = final;
+                      host = final.${name};
+                    })
+                )
                 (infuse prev)
               ])]
 
@@ -261,5 +278,5 @@ in {
             )]
 
           ])
-          final initial));
+          final {}));
 }

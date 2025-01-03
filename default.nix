@@ -165,7 +165,7 @@ in {
                 (name: host: host // {
                   inherit name;
                   pkgs = pkgsOn host.canonical;
-                  tags = site.tags.defaults;
+                  tags = lib.mapAttrsRecursive (_: _: false) site.tags;
                 } // lib.optionalAttrs (host?hostid) {
                   inherit (host) hostid;
                 })
@@ -260,7 +260,7 @@ in {
                 (infuse prev)
               ])]
 
-            (lib.pipe site.tags.overlay [
+            (lib.pipe site.tags [
               (lib.filterAttrs (n: _: !(lib.hasPrefix "__" n)))
               (lib.mapAttrs
                 (tag: overlay:

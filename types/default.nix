@@ -40,22 +40,20 @@ let
       edenPort = option int;  # FIXME
     };
     ifname = string;
+
     host = struct "host" {
       name = string;
       canonical = string;      # gnu-config triple
       hostid = option string;  # identifier for diskless hosts
+
       tags =
         let
-          type' = name: val:
-            if val == false
-            then yants.bool
-            else if lib.isAttrs val
-            then yants.struct name
-              (lib.mapAttrs type' val)
-            else
-              throw "invalid type for tag defaults";
+          attrs2yants = val:
+            if lib.isAttrs val
+            then struct "tag-type" (lib.mapAttrs (_: attrs2yants) val)
+            else bool;
         in
-          type' "tags" tags.defaults;
+          attrs2yants tags;
 
       interfaces = attrs interface;
       ifconns = attrs ifconn; # attrname is the subnet name; assumes (sensibly) maximum one interface per subnet

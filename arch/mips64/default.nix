@@ -33,7 +33,6 @@ let
   };
 in
 {
-  boot.kernel.package  = _: pkgs.p.kernel.simple;
   boot.kernel.payload  = _: "${payload}/uImage";
 
   boot.kernel.dtb = _:

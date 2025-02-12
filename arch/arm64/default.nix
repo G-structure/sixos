@@ -13,7 +13,6 @@
   sw = _: "${sw.arm}";
 
 } // lib.optionalAttrs tags.is-nfsroot {
-  boot.kernel.package  = _: pkgs.p.kernel.simple;
   boot.kernel.payload  = _: pkgs.callPackage ./payload.nix {
     kernel = "${final.boot.kernel.package}/Image";
     initrd = final.boot.initrd;

@@ -10,12 +10,26 @@
 with yants;
 let
 
-    # recursively walks an attrset, turning all non-leaf nodes into instances of
-    # `yants.struct` and all leaf nodes into `yants.bool`.
+    # (used for site.tags): recursively walks an attrset, turning all non-leaf
+    # nodes into instances of `yants.struct` and all leaf nodes into
+    # `yants.bool`.
     attrs2yants = name: val:
       if lib.isAttrs val
       then struct name (lib.mapAttrs attrs2yants val  // { tags = option any; })
       else bool;
+
+    # the default tag attrset (i.e. all leaves false) for a host in this site
+    default-tag-values =
+      lib.mapAttrsRecursive (path: val: false) tags;
+
+    # because `final.host.${hostname}.tags` is a frequent source of infinite
+    # recursion, all functions which modify `host.${hostname}.tags` use this
+    # function to ensure that its attrnames (in which it is strict) are
+    # determined solely by the `site.tags`.
+    set-tag-values =
+      new-tag-values:
+      default-tag-values //
+      lib.intersectAttrs default-tag-values new-tag-values;
 
     # here's the problem
     # - some hosts are on a subnet, but i haven't declared the name of the interface for that subnet yet
@@ -155,4 +169,6 @@ in
     inherit host;
     inherit hosts;
     inherit site;
+    inherit default-tag-values;
+    inherit set-tag-values;
   }

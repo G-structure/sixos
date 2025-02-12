@@ -31,9 +31,13 @@
   },
 
   readTree
+  # This is tvl canon at dacbde58ea97891a32ce4d874aba0fc09328c1d5 plus a
+  # one-line change (which I am not yet sure is appropriate for upstream) to
+  # allow a `default.nix` which evaluates to an attrset to control the merging
+  # of its own children by providing a `__readTreeMerge` attribute.
   ? import (builtins.fetchurl {
-    url = "https://code.tvl.fyi/plain/nix/readTree/default.nix?id=95d6b3754f933c035d1951f25419f797684c147d";
-    sha256 = "0f1lm7yfd5rfhiwj04s0fvyjy14ixw91m1n82pgj02p0yvzc7cg6";
+    url = "https://codeberg.org/amjoseph/depot/raw/commit/874181181145c7004be6164baea912bde78f43f6/nix/readTree/default.nix";
+    sha256 = "1hfidfd92j2pkpznplnkx75ngw14kkb2la8kg763px03b4vz23zf";
   }) {},
 
   yants

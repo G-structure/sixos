@@ -60,35 +60,33 @@
 
   extra-by-name-dirs ? [],
 
-}:
+  extra-auto-args ? {},
+
+}@args:
 
 let
-  root = readTree.fix (self: (readTree {
-    args = {
-      root = self;
-      inherit yants lib infuse util readTree;
-      inherit (site) tags;
-    };
-    path = ./.;
-  }));
 
-  inherit (root) util;
+  # readTree invocation on the `site` directory
+  site =
+    let
+      auto-args' = auto-args // extra-auto-args // {
+        auto-args = auto-args';
+      };
+    in
+      root.util.maybe-invoke-readTree auto-args' args.site;
 
-  # why, oh why, does nix not allow shadowing?
-  site' = site { inherit lib util yants infuse readTree; };
-in let
-
-  site = site' // {
-    hosts = util.maybe-invoke-readTree { inherit lib yants infuse util; } site'.hosts;
-    tags  = util.maybe-invoke-readTree { inherit lib yants infuse util; } site'.tags;
+  # automatically-provided arguments (e.g. callPackage and readTree)
+  auto-args = {
+    inherit lib yants infuse readTree;
+    inherit (root) types util;
+    inherit root;
+    inherit auto-args;
+    inherit site;
   };
 
+  # readTree invocation on the directory containing this file
   root = readTree.fix (self: (readTree {
-    args = {
-      root = self;
-      inherit yants lib infuse util;
-      inherit (site) tags;
-    };
+    args = auto-args;
     path = ./.;
   }));
 

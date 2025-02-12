@@ -58,6 +58,8 @@
 
   site,
 
+  extra-by-name-dirs ? [],
+
 }:
 
 let
@@ -258,6 +260,11 @@ in let
             configuration = import ./configuration.nix {
               inherit yants lib infuse host;
               overlays = host.service-overlays or [];
+              six = import ./six {
+                inherit lib yants;
+                inherit (host) pkgs;
+                inherit extra-by-name-dirs;
+              };
             };
           })
     )

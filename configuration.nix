@@ -127,23 +127,7 @@ let
         sshd               = _: final.services.sshd {}; # FIXME: logging sshd means it won't start if the root filesystem can't be remounted read-write
         syslog             = _: final.services.syslog {};
         set-hostname       = _: final.services.set-hostname { hostname = host.name; };
-
-        # requires patches/0001-libressl-make-stateDir-a-parameter-expose-all-parame.patch
-        /*
-        openntpd           = _: final.services.openntpd {
-          conf = let
-            # FIXME gross; this needs to be based on which local network we have interfaces upon
-            trusted-ntpd-server-ip-addresses = [
-            ];
-          in host.pkgs.writeText "ntpd.conf" (''
-              # Addresses to listen on (ntpd does not listen by default)
-              #listen on *
-              # use a random selection of NTP Pool Time Servers
-              # see http://support.ntp.org/bin/view/Servers/NTPPoolServers
-              servers pool.ntp.org
-            '' + (lib.concatMapStrings (s: "server ${s} trusted\n") trusted-ntpd-server-ip-addresses));
-        };
-        */
+        openntpd           = _: final.services.openntpd { };
       };
     }
   ];

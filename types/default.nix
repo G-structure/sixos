@@ -50,6 +50,16 @@ let
           (v: lib.hasPrefix builtins.storeDir v)
           string);
 
+    # A single tty-device, which is a device name and an optional baud rate
+    tty-dev = struct "console" {
+      device = string;    # the part after "/dev/" -- i.e. just "ttyS0"
+      baud = option int;
+    };
+
+    # A set of tty-devices: a map from device name to optional baudrate.
+    # Using `list tty-dev` would allow duplicates and be ordering-sensitive.
+    tty-dev-map = attrs (option yants.int);
+
     host = struct "host" {
       name = string;
       canonical = string;      # gnu-config triple
@@ -96,16 +106,13 @@ let
           # This is the *primary* console which is passed as the *last*
           # `console=` on the kernel command line; this will become /dev/console
           # once the kernel hands off to userspace.
-          console = option (struct "console" {
-            device = string;
-            baud = option int;
-          });
+          console = option tty-dev;
         };
 
         # This indicates the ttys on which login services (getty, seatd, etc)
         # should be run after the kernel starts PID1.  It has no effect on the
         # pre-userspace kernel or the early-userspace initrd.
-        ttys = any;    # attrsof< null | int >
+        ttys  = tty-dev-map;
 
         spec = any;    #string;
         initrd = any;  #string;

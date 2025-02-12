@@ -117,12 +117,7 @@ let
           conf = host.pkgs.callPackage ./mdev-conf.nix { inherit host; };
         };
         mdevd-coldplug     = _: final.services.mdevd-coldplug { };
-        dnscache           = _: final.services.dnscache {
-          # FIXME: wait for wireguard?  or at least the firewall?
-          forward-queries-to = [
-            "8.8.8.8" # REDACTED (was: westernsemico internal)
-          ];
-        };
+        dnscache           = _: final.services.dnscache { };
         nix-daemon         = _: final.services.nix-daemon {};
         sshd               = _: final.services.sshd {}; # FIXME: logging sshd means it won't start if the root filesystem can't be remounted read-write
         syslog             = _: final.services.syslog {};

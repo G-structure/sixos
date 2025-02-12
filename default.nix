@@ -280,6 +280,7 @@ let
         infuse prev {
           boot.initrd.ttys.__default = { tty0 = null; };
           boot.initrd.contents.__default = { };
+          boot.kernel.firmware.__init = [];
         }))
 
     (root.util.apply-to-hosts

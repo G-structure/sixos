@@ -1,7 +1,6 @@
 { final
 , name
 , infuse
-, sw
 , pkgs ? final.pkgs
 , lib ? pkgs.lib
 , boot-device-label ? "boot"  # filesystem from which uboot will read the kernel and initrd
@@ -71,8 +70,6 @@ in
       ${pkgs.busybox}/bin/echo                      >> /run/six/update-bootloader-mountpoint/normal.ubootenv
       ${pkgs.busybox}/bin/umount /run/six/update-bootloader-mountpoint
     '';
-
-  sw = _: "${sw.mips}";
 
   # mips devices have very small disks
   delete-generations = _: "5d";

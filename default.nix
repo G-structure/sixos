@@ -66,32 +66,27 @@ let
   root = readTree.fix (self: (readTree {
     args = {
       root = self;
-      inherit yants lib infuse sw util readTree;
+      inherit yants lib infuse util readTree;
       inherit (site) tags;
     };
     path = ./.;
   }));
 
   inherit (root) util;
-  
-  # attrset mapping each gnu-config canonical name to the outpath
-  # which will be used as /run/current-system/sw (what NixOS calls
-  # `environment.systemPackages`)
-  sw = { };
 
   # why, oh why, does nix not allow shadowing?
-  site' = site { inherit lib util yants infuse sw readTree; };
+  site' = site { inherit lib util yants infuse readTree; };
 in let
 
   site = site' // {
-    hosts = util.maybe-invoke-readTree { inherit lib yants infuse sw util; } site'.hosts;
-    tags  = util.maybe-invoke-readTree { inherit lib yants infuse sw util; } site'.tags;
+    hosts = util.maybe-invoke-readTree { inherit lib yants infuse util; } site'.hosts;
+    tags  = util.maybe-invoke-readTree { inherit lib yants infuse util; } site'.tags;
   };
 
   root = readTree.fix (self: (readTree {
     args = {
       root = self;
-      inherit yants lib infuse sw util;
+      inherit yants lib infuse util;
       inherit (site) tags;
     };
     path = ./.;
@@ -204,22 +199,22 @@ in let
         ({
           x86_64-unknown-linux-gnu =
             import ./arch/amd64 {
-              inherit sw final infuse;
+              inherit final infuse;
               inherit (prev) name;
             };
           mips64el-unknown-linux-gnuabi64 =
             import ./arch/mips64 {
-              inherit sw final infuse;
+              inherit final infuse;
               inherit (prev) name;
             };
           powerpc64le-unknown-linux-gnu =
             import ./arch/powerpc64 {
-              inherit sw final infuse;
+              inherit final infuse;
               inherit (prev) name;
             };
           aarch64-unknown-linux-gnu =
             import ./arch/arm64 {
-              inherit lib sw final infuse;
+              inherit lib final infuse;
               inherit (prev) name;
               inherit (final) tags;
             };

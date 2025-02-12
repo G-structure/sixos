@@ -133,7 +133,7 @@ in
     six.mkConfiguration {
       inherit (host) boot;
       delete-generations = host.delete-generations or null;
-      sw = host.sw or null;
+      inherit (host) sw;
       inherit nixpkgs-version;
       hostname = host.name;
       console.device = host.boot.kernel.console.device;

@@ -1,7 +1,6 @@
 { final
 , name
 , infuse
-, sw
 , tags
 , pkgs ? final.pkgs
 , lib /*? pkgs.lib*/          # no default in order to prevent infinite recursion
@@ -10,8 +9,6 @@
 }:
 
 {
-  sw = _: "${sw.arm}";
-
 } // lib.optionalAttrs tags.is-nfsroot {
   boot.kernel.payload  = _: pkgs.callPackage ./payload.nix {
     kernel = "${final.boot.kernel.package}/Image";

@@ -1,13 +1,11 @@
 { final
 , name
 , infuse
-, sw
 , pkgs ? final.pkgs
 , lib ? pkgs.lib
 }:
 
 {
-  sw = _: "${sw.powerpc}";
   boot.ttys.hvc0 = _: 115200;
   boot.kernel.console.device = _: "hvc0";
   boot.kernel.payload = _: "${final.boot.kernel.package}/vmlinux";

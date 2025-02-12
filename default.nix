@@ -93,6 +93,7 @@ let
     inherit root;
     inherit auto-args;
     inherit site;
+    inherit nixpkgs;
   };
 
   # readTree invocation on the directory containing this file

@@ -183,6 +183,11 @@ in let
     (util.forall-hosts
       (final: prev: infuse prev
         ({
+          x86_64-unknown-linux-gnu =
+            import ./arch/amd64 {
+              inherit sw final infuse;
+              inherit (prev) name;
+            };
           mips64el-unknown-linux-gnuabi64 =
             import ./arch/mips64 {
               inherit sw final infuse;

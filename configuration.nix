@@ -119,7 +119,8 @@ let
         mdevd-coldplug     = _: final.services.mdevd-coldplug { };
         dnscache           = _: final.services.dnscache { };
         nix-daemon         = _: final.services.nix-daemon {};
-        sshd               = _: final.services.sshd {}; # FIXME: logging sshd means it won't start if the root filesystem can't be remounted read-write
+        # FIXME: logging sshd means it won't start if the root filesystem can't be remounted read-write
+        sshd               = _: final.services.sshd {};
         syslog             = _: final.services.syslog {};
         set-hostname       = _: final.services.set-hostname { hostname = host.name; };
         openntpd           = _: final.services.openntpd { };

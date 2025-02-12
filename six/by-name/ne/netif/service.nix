@@ -92,6 +92,7 @@ let
 
   '' + lib.optionalString (post-up != null) ''
         ${post-up}
+  '' + ''
         ;;
 
       # note: busybox executes this *on startup* as well as after a lease is

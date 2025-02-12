@@ -175,9 +175,26 @@ in let
     ))
 
     # boot stage
-  ] ++ (import ./boot.nix {
-    inherit lib infuse six-initrd util;
-  }) ++ [
+  ] ++ (import ./boot.nix { inherit lib infuse six-initrd util; }) ++ [
+
+    # default kernel setup
+    (util.forall-hosts
+      (final: prev:
+        infuse prev {
+          boot.kernel.params   = _: [
+            "root=LABEL=boot"
+            "ro"
+          ] ++ lib.optionals (final.boot?kernel.console.device) [
+            ("console=${final.boot.kernel.console.device}"
+             + lib.optionalString
+               (final.boot?ttys.${final.boot.kernel.console.device})
+               ",${toString final.boot.ttys.${final.boot.kernel.console.device}}")
+          ];
+          boot.kernel.modules  = _: "${final.boot.kernel.package}";
+          boot.kernel.payload    = _: "${final.boot.kernel.package}/bzImage";
+          boot.kernel.package  = _: final.pkgs.callPackage ./kernel.nix { };
+        }
+      ))
 
     # arch stage
     (util.forall-hosts

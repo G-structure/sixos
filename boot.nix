@@ -6,42 +6,7 @@
 
 # TODO: rename this file to initrd.nix
 
-[(util.forall-hosts
-
-  # TODO: move this into arch/
-  (final: prev:
-    let
-      inherit (final) name pkgs;
-
-      make-linux-fast-again = lib.optionals (with pkgs.stdenv.hostPlatform; isx86 || isAarch64) [
-        "noibrs"
-        "noibpb"
-        "nopti"
-        "nospectre_v2"
-        "nospectre_v1"
-        "l1tf=off"
-        "nospec_store_bypass_disable"
-        "no_stf_barrier"
-        "mds=off"
-        "tsx=on"
-        "tsx_async_abort=off"
-        "mitigations=off"
-      ];
-    in infuse prev {
-      boot.kernel.params   = _: [
-        "root=LABEL=boot"
-        "ro"
-      ] ++ make-linux-fast-again ++ lib.optionals (final.boot?kernel.console.device) [
-        ("console=${final.boot.kernel.console.device}"
-          + lib.optionalString
-            (final.boot?ttys.${final.boot.kernel.console.device})
-            ",${toString final.boot.ttys.${final.boot.kernel.console.device}}")
-      ];
-      boot.kernel.modules  = _: "${final.boot.kernel.package}";
-      boot.kernel.payload    = _: "${final.boot.kernel.package}/bzImage";
-      boot.kernel.package  = _: final.pkgs.callPackage ./kernel.nix { };
-    }
-  ))
+[
 
  # basic minimal initrd
  (util.forall-hosts

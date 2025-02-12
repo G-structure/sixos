@@ -44,9 +44,7 @@
   ? import (builtins.fetchurl {
     url = "https://code.tvl.fyi/plain/nix/yants/default.nix";
     sha256 = "026j3a02gnynv2r95sm9cx0avwhpgcamryyw9rijkmc278lxix8j";
-  }) {
-    inherit lib;
-  },
+  }),
 
   six-initrd
   ? import (builtins.fetchGit {
@@ -68,7 +66,29 @@
 
 }@args:
 
+
+let yants' = yants; in
 let
+  # this "patches" the version of `lib` that is passed to `yants`, wrapping
+  # `tryEval` around invocations of `lib.generators.toPretty`.
+  yants = yants' {
+    lib = infuse lib {
+
+      generators.toPretty = old-toPretty:
+        # The following is copy-pasted from infuse.nix, which uses this routine but
+        # does not expose it (since doing so would make it part of the infuse API).
+        #
+        # This is a `throw`-tolerant version of toPretty, so that error diagnostics in
+        # this file will print "<<throw>>" rather than triggering a cascading error.
+        args: val:
+        let
+          try = builtins.tryEval (old-toPretty args val);
+        in
+          if try.success
+          then try.value
+          else "<<throw>>";
+    };
+  };
 
   # readTree invocation on the `site` directory
   site =

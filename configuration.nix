@@ -4,14 +4,10 @@
 , host
 , overlays ? []
 , nixpkgs-version ? "unknown-nixpkgs-version"
+, six
 }:
 
 let
-  six = import ./six {
-    inherit lib yants;
-    inherit (host) pkgs;
-  };
-
   netifs = final: {
     targets.net.iface = _: lib.pipe host.interfaces [
       (lib.mapAttrsToList

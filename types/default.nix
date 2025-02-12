@@ -9,6 +9,14 @@
 
 with yants;
 let
+
+    # recursively walks an attrset, turning all non-leaf nodes into instances of
+    # `yants.struct` and all leaf nodes into `yants.bool`.
+    attrs2yants = name: val:
+      if lib.isAttrs val
+      then struct name (lib.mapAttrs attrs2yants val  // { tags = option any; })
+      else bool;
+
     # here's the problem
     # - some hosts are on a subnet, but i haven't declared the name of the interface for that subnet yet
     # - the "lo" interface can't have a named subnet, since it doesn't connect to any other machine
@@ -65,14 +73,7 @@ let
       canonical = string;      # gnu-config triple
       hostid = option string;  # identifier for diskless hosts
 
-      tags =
-        let
-          attrs2yants = val:
-            if lib.isAttrs val
-            then struct "tag-type" (lib.mapAttrs (_: attrs2yants) val)
-            else bool;
-        in
-          attrs2yants args.tags;
+      tags = attrs2yants "tags" args.tags;
 
       interfaces = attrs interface;
       ifconns = attrs ifconn; # attrname is the subnet name; assumes (sensibly) maximum one interface per subnet

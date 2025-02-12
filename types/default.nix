@@ -110,13 +110,18 @@ let
           console = option tty-dev;
         };
 
-        # This indicates the ttys on which login services (getty, seatd, etc)
-        # should be run after the kernel starts PID1.  It has no effect on the
-        # pre-userspace kernel or the early-userspace initrd.
-        ttys  = tty-dev-map;
+        initrd = struct "initrd" {
+          image = any;  #string; (outpath)
+
+          contents = any;  # see six-initrd
+
+          # This indicates the ttys on which login services (getty, seatd, etc)
+          # should be run after the kernel starts PID1.  It has no effect on the
+          # pre-userspace kernel or the early-userspace initrd.
+          ttys  = tty-dev-map;
+        };
 
         spec = any;    #string;
-        initrd = any;  #string;
       };
 
     };

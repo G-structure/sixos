@@ -126,7 +126,7 @@ let
     site = struct "site" {
       #host = attrs host;
       host = any;
-      hosts = any;
+      inherit hosts;
       site = any;
       globals = any;  # "junk drawer" for passing things down the hierarchy
 

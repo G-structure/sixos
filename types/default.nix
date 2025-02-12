@@ -41,6 +41,13 @@ let
     };
     ifname = string;
 
+    # a path in the store (i.e. outpath or a file within an outpath directory)
+    storepath =
+      either drv
+        (restrict "storepath"
+          (v: lib.hasPrefix builtins.storeDir v)
+          string);
+
     host = struct "host" {
       name = string;
       canonical = string;      # gnu-config triple

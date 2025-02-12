@@ -119,7 +119,9 @@ let
         sshd               = _: final.services.sshd {};
         syslog             = _: final.services.syslog {};
         set-hostname       = _: final.services.set-hostname { hostname = host.name; };
-        openntpd           = _: final.services.openntpd { };
+
+        # you need a nixpkgs patch for this
+        #openntpd           = _: final.services.openntpd { };
       };
     }
   ];

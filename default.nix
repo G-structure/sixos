@@ -125,7 +125,7 @@ in let
     )
 
     # build the ifconns and interfaces attributes
-    (util.forall-hosts (final: prev:
+    (root.util.forall-hosts (host-name: final: prev:
       let
         ifconns =
           # all the subnets to which it is directly attached.
@@ -175,8 +175,8 @@ in let
   ] ++ (import ./boot.nix { inherit lib infuse six-initrd util; }) ++ [
 
     # default kernel setup
-    (util.forall-hosts
-      (final: prev:
+    (root.util.forall-hosts
+      (host-name: final: prev:
         infuse prev {
           boot.kernel.params   = _: [
             "root=LABEL=boot"
@@ -194,8 +194,8 @@ in let
       ))
 
     # arch stage
-    (util.forall-hosts
-      (final: prev: infuse prev
+    (root.util.forall-hosts
+      (host-name: final: prev: infuse prev
         ({
           x86_64-unknown-linux-gnu =
             import ./arch/amd64 {
@@ -239,11 +239,14 @@ in let
     (lib.filterAttrs (n: _: !(lib.hasPrefix "__" n)))
     (lib.mapAttrs
       (tag: overlay:
-        (util.forall-hosts
-          (final: prev:
-            if prev.tags.${tag}      # no `or` here; if attrs are missing it causes infinite recursion
-            then overlay final prev
-            else prev
+        (root.util.forall-hosts'
+          (name: host-final: host-prev:
+            (
+              #if site-nofixpoint.host.${name}.tags.${tag}
+              #if host-final.tags.${tag}
+              if host-prev.tags.${tag}
+              then host-prev // overlay host-final host-prev
+            else host-prev)
           ))))
     lib.attrValues
   ]) ++ [

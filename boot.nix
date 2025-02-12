@@ -10,7 +10,7 @@
 
  # basic minimal initrd
  (util.forall-hosts
-   (final: prev: infuse prev {
+   (host-name: final: prev: infuse prev {
      boot.initrd = _:
        (six-initrd {
          inherit lib;
@@ -21,7 +21,7 @@
 
  # abduco-enabled initrd
  (util.forall-hosts
-  (final: prev: infuse prev ({
+  (host-name: final: prev: infuse prev ({
     boot.initrd.__input.contents = _:
       (six-initrd {
         inherit lib;
@@ -33,7 +33,7 @@
 
  # minimum necessary contents
  (util.forall-hosts
-  (final: prev: let
+  (host-name: final: prev: let
     inherit (final) pkgs;
   in infuse prev ({
     boot.initrd.__input.compress = _: "gzip";
@@ -74,7 +74,7 @@
   })))
 
  (util.forall-hosts
-  (final: prev: let inherit (final) pkgs; in infuse prev ( {
+  (host-name: final: prev: let inherit (final) pkgs; in infuse prev ( {
     boot.initrd.__input.contents =
       let
         boot-ifconn = final.ifconns.${final.boot.nfsroot.subnet};
@@ -124,7 +124,7 @@
 
  # cryptsetup-enabled initrd
  (util.forall-hosts
-  (final: prev: let inherit (final) pkgs; in infuse prev ({
+  (host-name: final: prev: let inherit (final) pkgs; in infuse prev ({
     boot.initrd.__input.contents = lib.optionalAttrs (!final.tags.is-nfsroot) {
       "early/run".__append = [''
         for DEV in $(blkid | grep 'TYPE="crypto_LUKS"' | sed 's_^\([^\:]*\):.*$_\1_;t;d'); do
@@ -158,7 +158,7 @@
 
  # lvm-enabled initrd
  (util.forall-hosts
-  (final: prev: let inherit (final) pkgs; in infuse prev ( {
+  (host-name: final: prev: let inherit (final) pkgs; in infuse prev ( {
     boot.initrd.__input.contents = lib.optionalAttrs (!final.tags.is-nfsroot && !final.tags.dont-mount-root) {
       "early/run".__append = [''
         # lvm lvchange --addtag @boot vg/lv
@@ -173,7 +173,7 @@
 
  # switch_root into the chosen profile
  (util.forall-hosts
-  (final: prev: let
+  (host-name: final: prev: let
     inherit (final) pkgs;
   in infuse prev ({
     boot.initrd.__input.contents."early/finish".__init = [''

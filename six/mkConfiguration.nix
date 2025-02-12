@@ -316,7 +316,15 @@ let
     # systems these days need so much firmware that most machines are likely to
     # fail to boot if the firmware directory is missing.  if you really really
     # want a no-firmware boot, pass the empty directory.
-    let firmware = boot.kernel.firmware; in
+    let
+      firmware =
+        if lib.isList boot.kernel.firmware
+        then pkgs.buildEnv {
+          name = "firmware";
+          paths = boot.kernel.firmware;
+        }
+        else boot.kernel.firmware;
+    in
    ''
      mkdir $out/boot
      ln -sT ${boot.kernel.payload} $out/boot/kernel

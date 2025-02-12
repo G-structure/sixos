@@ -87,7 +87,7 @@ let
           payload = any;  #string or path;
           params = any;   #list string;
           modules = any;  #string;
-          firmware = any; #string;
+          firmware = either storepath (list storepath);
           package = any;
           dtb = any;
 

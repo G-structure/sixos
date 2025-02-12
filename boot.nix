@@ -39,13 +39,6 @@
       ];
       boot.kernel.modules  = _: "${final.boot.kernel.package}";
       boot.kernel.payload    = _: "${final.boot.kernel.package}/bzImage";
-      boot.kernel.firmware = _: pkgs.buildEnv {
-        name = "firmware";
-        paths = [
-          pkgs.linux-firmware
-          pkgs.alsa-firmware
-        ];
-      };
       boot.kernel.package  = _: final.pkgs.callPackage ./kernel.nix { };
     }
   ))

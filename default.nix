@@ -121,7 +121,7 @@ let
     (site-final: site-prev:
       #types.site
         ({
-          inherit (site) subnets site overlay tags globals;
+          inherit (site) subnets overlay tags globals;
           # This is a copy of site.hosts built by passing in an attrset full of
           # `throw` values as the fixpoint argument.  This ensures that the
           # `canonical` and `name` fields of `final.hosts.${name}` do not depend
@@ -279,6 +279,7 @@ let
       (host-name: final: prev:
         infuse prev {
           boot.initrd.ttys.__default = { tty0 = null; };
+          boot.initrd.contents.__default = { };
         }))
 
     (root.util.apply-to-hosts

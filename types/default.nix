@@ -91,18 +91,16 @@ let
 
       interfaces = attrs interface;
       ifconns = attrs ifconn; # attrname is the subnet name; assumes (sensibly) maximum one interface per subnet
-      pkgs = any;             # attrsof<pkg>
-      sw = any;               # drv
-      configuration = any;    # drv
+      pkgs = any;             # attrsof<pkg>; set to `any` to keep eval times reasonable
+      sw = any;               # drv; set to `any` to keep eval times reasonable
+      configuration = any;    # drv; set to `any` to keep eval times reasonable
       delete-generations = option string;
 
-      service-overlays = option (list any);
+      service-overlays = option (list function);
 
-      # these are declared "any" in order to prevent typechecking from forcing
-      # the entire kernel derivation
       boot = struct "boot" {
         loader = option (struct "loader" {
-          update = any; # string: a command which is run with one or two arguments
+          update = either drv string; # command which is run with one or two arguments
         });
 
         nfsroot = option (struct "boot.tnfsroot" {
@@ -111,12 +109,12 @@ let
         });
 
         kernel = struct "kernel" {
-          payload = any;  #string or path;
-          params = any;   #list string;
-          modules = any;  #string;
+          payload = storepath;
+          params = list string;
+          modules = storepath;  # store path containing the built kernel modules
           firmware = either storepath (list storepath);
-          package = any;
-          dtb = any;
+          package = drv;
+          dtb = option storepath;
 
           # This is the *primary* console which is passed as the *last*
           # `console=` on the kernel command line; this will become /dev/console
@@ -125,9 +123,9 @@ let
         };
 
         initrd = struct "initrd" {
-          image = any;  #string; (outpath)
+          image = storepath;
 
-          contents = any;  # see six-initrd
+          contents = attrs (either (either string storepath) (list string));  # see six-initrd
 
           # This indicates the ttys on which login services (getty, seatd, etc)
           # should be run after the kernel starts PID1.  It has no effect on the
@@ -135,26 +133,27 @@ let
           ttys  = tty-dev-map;
         };
 
-        spec = any;    #string;
+        spec = option storepath;
       };
 
     };
 
-    hosts = attrs host;
-
     site = struct "site" {
-      #host = attrs host;
-      host = any;
-      inherit hosts;
-      site = any;
+      hosts = attrs host;
       globals = any;  # "junk drawer" for passing things down the hierarchy
 
-      # tag-name -> overlay-that-is-applied-if-tag-is-present
+      # tag-name -> (list function)
+      #
+      # if `site.hosts.${name}.tags.${tag-name}==true` then
+      # `lib.composeExtensions site.tags.${tag-name}` will be applied to
+      # `site.hosts.${name}`
+      #
       tags = attrs function;
 
       # subnet-name -> host-name -> ifconn
       subnets = attrs (attrs ifconn);
 
+      # sitewide hosts-overlay FinalHosts->PrevHosts->NewHosts
       overlay = list function;
     };
 
@@ -167,7 +166,6 @@ in
     inherit ifconn;
     inherit ifname;
     inherit host;
-    inherit hosts;
     inherit site;
     inherit default-tag-values;
     inherit set-tag-values;

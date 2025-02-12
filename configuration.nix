@@ -133,8 +133,6 @@ in
       inherit (host) sw;
       inherit nixpkgs-version;
       hostname = host.name;
-      console.device = host.boot.kernel.console.device;
-      console.baud   = host.boot.kernel.console.baud or host.boot.ttys.${host.boot.kernel.console.device};
       verbosity = 3;
       overlays = [
         (final: prev: {

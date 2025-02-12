@@ -202,15 +202,18 @@ let
     # default kernel setup
     (root.util.forall-hosts
       (host-name: final: prev:
-        infuse prev {
+        let
+          mkKernelConsoleBootArg =
+            { device
+            , baud ? null }:
+            "console=${device}"
+            + lib.optionalString (baud!=null) ",${toString baud}";
+        in infuse prev {
           boot.kernel.params   = _: [
             "root=LABEL=boot"
             "ro"
-          ] ++ lib.optionals (final.boot?kernel.console.device) [
-            ("console=${final.boot.kernel.console.device}"
-             + lib.optionalString
-               (final.boot?initrd.ttys.${final.boot.kernel.console.device})
-               ",${toString final.boot.initrd.ttys.${final.boot.kernel.console.device}}")
+          ] ++ lib.optionals (final.boot?kernel.console) [
+            (mkKernelConsoleBootArg final.boot.kernel.console)
           ];
           boot.kernel.modules  = _: "${final.boot.kernel.package}";
           boot.kernel.payload    = _: "${final.boot.kernel.package}/bzImage";

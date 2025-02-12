@@ -23,8 +23,9 @@
 # invocations are a bug, which should fail rather than deadlock.
 , fail-on-lock-contention     ? true   # -b
 
-, console ? throw "the console argument is required"
-, early-getty ? "${pkgs.busybox}/bin/getty -nl ${pkgs.busybox}/bin/sh ${toString console.baud} ${console.device}"
+# FIXME(amjoseph): do the same abduco trick here that we already do in the initrd
+# FIXME(amjoseph): should be using boot.initrd.ttys instead of boot.kernel.console here
+, early-getty ? "${pkgs.busybox}/bin/getty -nl ${pkgs.busybox}/bin/sh ${toString (boot.kernel.console.baud or 115200)} ${boot.kernel.console.device or "tty0"}"
 
 , hostname
 , nixpkgs-version ? "unknown-nixpkgs-version"

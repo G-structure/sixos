@@ -172,7 +172,7 @@ in let
     ))
 
     # boot stage
-  ] ++ (import ./boot.nix { inherit lib infuse six-initrd util; }) ++ [
+  ] ++ (import ./initrd.nix { inherit lib infuse six-initrd util; }) ++ [
 
     # default kernel setup
     (root.util.forall-hosts

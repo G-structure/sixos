@@ -4,8 +4,6 @@
 , util
 }:
 
-# TODO: rename this file to initrd.nix
-
 [
 
  # basic minimal initrd

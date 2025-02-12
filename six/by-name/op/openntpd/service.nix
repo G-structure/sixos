@@ -2,6 +2,9 @@
 , six
 , pkgs
 , targets
+
+# This requires 0001-libressl-make-stateDir-a-parameter-expose-all-parame.patch
+# which is not (yet) in upstream nixpkgs
 , package ? pkgs.openntpd.override {
   # Ensure that all state files are kept in /run so everything is ephemeral
   # and we can `mkdir` all the requisite directories without having to worry

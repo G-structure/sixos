@@ -53,11 +53,6 @@
     shallow = true;
   }),
 
-  # function which maps gnu-config canonical names to the `pkgs` set which has that 
-  pkgsOn ? canonical: nixpkgs {
-    hostPlatform = canonical;
-  },
-
   site,
 
   extra-by-name-dirs ? [],
@@ -90,19 +85,11 @@ let
     };
   };
 
-  # readTree invocation on the `site` directory
-  site =
-    let
-      auto-args' = auto-args // extra-auto-args // {
-        auto-args = auto-args';
-      };
-    in
-      root.util.maybe-invoke-readTree auto-args' args.site;
-
   # automatically-provided arguments (e.g. callPackage and readTree)
   auto-args = {
     inherit lib yants infuse readTree;
-    inherit (root) types util;
+    inherit types;
+    inherit (root) util;
     inherit root;
     inherit auto-args;
     inherit site;
@@ -114,37 +101,56 @@ let
     path = ./.;
   }));
 
-  # helpful utility function; turns a fixpoint-on-one-host into a
-  # fixpoint-on-the-entire-hosts-set.
-  forall-hosts = f:
-    (hosts:
-      hosts_prev:
-      hosts_prev //
-      lib.flip lib.mapAttrs hosts_prev
-        (name:
-          host_prev:
-          host_prev // (f hosts.${name} host_prev)));
+  # readTree invocation on the `site` directory
+  site =
+    let
+      site-unchecked = root.util.maybe-invoke-readTree auto-args' args.site;
+      auto-args' = auto-args // extra-auto-args // {
+        site = site-unchecked;
+        auto-args = auto-args';
+      };
+    in
+      #types.site
+        site-unchecked;
+
+  types = root.types { inherit (site) tags; };
 
   overlays = [
 
     # initial host set: populate attrnames from site.hosts
-    (final: prev:
-      lib.mapAttrs
-        (name: _: prev.${name} or {})
-        site.hosts
-    )
-
-    # add in the `name`, `pkgs`, `tags`, and (optional) `hostid` attributes
-    (final: prev:
-      lib.flip lib.mapAttrs prev
-        (name: host: host // {
-          inherit name;
-          pkgs = pkgsOn host.canonical;
-          tags = lib.mapAttrsRecursive (_: _: false) site.tags;
-        } // lib.optionalAttrs (host?hostid) {
-          inherit (host) hostid;
-        })
-    )
+    (site-final: site-prev:
+      #types.site
+        ({
+          inherit (site) subnets site overlay tags globals;
+          # This is a copy of site.hosts built by passing in an attrset full of
+          # `throw` values as the fixpoint argument.  This ensures that the
+          # `canonical` and `name` fields of `final.hosts.${name}` do not depend
+          # on the fixpoint.
+          hosts =
+            lib.mapAttrs
+              (name: host-func:
+                let
+                  nofixpoint-host' = host-func {
+                    inherit name;
+                    inherit (nofixpoint-host) canonical tags;
+                    host = site-final.hosts.${name};
+                    host-prev = {};
+                    #site = throw "immutable fields of host must not depend on the site argument";
+                    site = site-final;
+                    pkgs = throw "immutable fields of host must not depend on the pkgs argument";
+                  };
+                  q = nofixpoint-host' // {
+                    inherit name;
+                    tags = types.set-tag-values (nofixpoint-host'.tags or {});
+                  };
+                  nofixpoint-host = q // {
+                    inherit (q) name canonical pkgs tags;
+                    service-overlays = q.service-overlays or [];
+                  };
+                in nofixpoint-host
+              )
+              site.hosts;
+        }))
 
     # build the ifconns and interfaces attributes
     (root.util.forall-hosts (host-name: final: prev:
@@ -193,9 +199,6 @@ let
       in prev // { inherit ifconns interfaces; }
     ))
 
-    # boot stage
-  ] ++ (import ./initrd.nix { inherit lib infuse six-initrd util; }) ++ [
-
     # default kernel setup
     (root.util.forall-hosts
       (host-name: final: prev:
@@ -206,8 +209,8 @@ let
           ] ++ lib.optionals (final.boot?kernel.console.device) [
             ("console=${final.boot.kernel.console.device}"
              + lib.optionalString
-               (final.boot?ttys.${final.boot.kernel.console.device})
-               ",${toString final.boot.ttys.${final.boot.kernel.console.device}}")
+               (final.boot?initrd.ttys.${final.boot.kernel.console.device})
+               ",${toString final.boot.initrd.ttys.${final.boot.kernel.console.device}}")
           ];
           boot.kernel.modules  = _: "${final.boot.kernel.package}";
           boot.kernel.payload    = _: "${final.boot.kernel.package}/bzImage";
@@ -217,91 +220,101 @@ let
 
     # arch stage
     (root.util.forall-hosts
-      (host-name: final: prev: infuse prev
+      (name: final: prev: infuse prev
         ({
           x86_64-unknown-linux-gnu =
             import ./arch/amd64 {
-              inherit final infuse;
-              inherit (prev) name;
+              inherit final infuse name;
             };
           mips64el-unknown-linux-gnuabi64 =
             import ./arch/mips64 {
-              inherit final infuse;
-              inherit (prev) name;
+              inherit final infuse name;
             };
           powerpc64le-unknown-linux-gnu =
             import ./arch/powerpc64 {
-              inherit final infuse;
-              inherit (prev) name;
+              inherit final infuse name;
             };
           aarch64-unknown-linux-gnu =
             import ./arch/arm64 {
-              inherit lib final infuse;
-              inherit (prev) name;
-              inherit (final) tags;
+              inherit lib final infuse name;
+              inherit (prev) tags;   # FIXME: use final.tags
             };
-        }.${prev.canonical or ""} or [])
+          mips-unknown-linux-gnu = {};
+          armv7-unknown-linux-gnueabi = {};
+          "" = {};
+        }.${prev.canonical or ""})  # FIXME: use final.canonical
       ))
 
-    (final: prev:
-      lib.pipe site.hosts [
-        (builtins.mapAttrs
-          (name: host:
-            host {
-              inherit name;
-              # FIXME: should fixpoint the whole site, not just site.hosts
-              site.hosts = final;
-              host = final.${name};
-            })
-        )
-        (infuse prev)
-      ])
+  ] ++ (import ./initrd.nix { inherit lib infuse six-initrd; inherit (root) util; }) ++ [
 
+  ] ++ (map root.util.apply-to-hosts site.overlay) ++ [
+
+    # apply tags
   ] ++ (lib.pipe site.tags [
-    (lib.filterAttrs (n: _: !(lib.hasPrefix "__" n)))
-    (lib.mapAttrs
-      (tag: overlay:
-        (root.util.forall-hosts'
-          (name: host-final: host-prev:
-            (
-              #if site-nofixpoint.host.${name}.tags.${tag}
-              #if host-final.tags.${tag}
-              if host-prev.tags.${tag}
-              then host-prev // overlay host-final host-prev
-            else host-prev)
-          ))))
+
+    (lib.mapAttrs (tag: overlay:
+      root.util.forall-hosts
+        (name: host-final: host-prev:
+          host-prev //
+          (if host-final.tags.${tag}
+           then overlay host-final host-prev
+           else {}))))
+
     lib.attrValues
+
+    # FIXME: make attrvalues of site.tags be a list-of-extensions, not a single
+    # extension -- that way concatenating the identity element has no
+    # performance penalty
+    #(lib.map (o: [o] ++ fixup))
+
+    lib.flatten
+
   ]) ++ [
 
-    (hosts: prev:
-      lib.flip lib.mapAttrs prev
-        (_: host:
-          host // {
-            configuration = import ./configuration.nix {
-              inherit yants lib infuse host;
-              overlays = host.service-overlays or [];
-              six = import ./six {
-                inherit lib yants;
-                inherit (host) pkgs;
-                inherit extra-by-name-dirs;
+    # set defaults
+    (root.util.forall-hosts
+      (host-name: final: prev:
+        infuse prev {
+          boot.initrd.ttys.__default = { tty0 = null; };
+        }))
+
+    (root.util.apply-to-hosts
+      (hosts-final: hosts-prev:
+        lib.flip lib.mapAttrs hosts-prev
+          (name: prevHost:
+            let host-final = hosts-final.${name}; in
+            #let host = prevHost; in
+            prevHost // {
+              configuration = import ./configuration.nix {
+                inherit yants lib infuse;
+                host = host-final;
+                overlays = host-final.service-overlays;
+                six = import ./six {
+                  inherit lib yants;
+                  inherit (host-final) pkgs;
+                  inherit extra-by-name-dirs;
+                };
               };
-            };
-          })
-    )
+            })
+      ))
+
   ];
 
 in {
 
-  host = lib.pipe overlays [
+  host =
 
-    # compose the extensions into a single (final: prev: ...)
-    (lib.foldr lib.composeExtensions (_: _: {}))
+    lib.pipe overlays [
+      # compose the extensions into a single (final: prev: ...)
+      (lib.foldr lib.composeExtensions (_: _: {}))
 
-    # tie the fixpoint knot
-    (composed: lib.fix (final: composed final {}))
+      # tie the fixpoint knot
+      (composed: lib.fix (final: composed final {}))
 
-    # typecheck the result
-    (lib.mapAttrs (hostName: host: root.types.host host))
-  ];
+      # typecheck the result
+      types.site
+
+      (x: x.hosts)
+    ];
 
 }

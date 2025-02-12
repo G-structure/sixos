@@ -12,7 +12,7 @@
 } // lib.optionalAttrs tags.is-nfsroot {
   boot.kernel.payload  = _: pkgs.callPackage ./payload.nix {
     kernel = "${final.boot.kernel.package}/Image";
-    initrd = final.boot.initrd;
+    initrd = final.boot.initrd.image;
     params = final.boot.kernel.params;
     dtb    = final.boot.kernel.dtb;
   };

@@ -6,7 +6,7 @@
 }:
 
 {
-  boot.ttys.hvc0 = _: 115200;
+  boot.initrd.ttys.hvc0 = _: 115200;
   boot.kernel.console.device = _: "hvc0";
   boot.kernel.payload = _: "${final.boot.kernel.package}/vmlinux";
   boot.loader.update = _: pkgs.writeShellScript "update-syslinux" ''

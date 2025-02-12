@@ -332,8 +332,8 @@ let
      ln -sT ${boot.kernel.modules} $out/boot/kernel-modules
      # path has to match NixOS in order to use the nixpkgs depmod/insmod/modprobe tools :(
      ln -sT boot/kernel-modules $out/kernel-modules
-   '' + lib.optionalString (boot?initrd) ''
-     ln -sT ${boot.initrd} $out/boot/initrd
+   '' + lib.optionalString (boot?initrd.image) ''
+     ln -sT ${boot.initrd.image} $out/boot/initrd
    '' + lib.optionalString (boot?spec) ''
      ln -sT ${boot.spec} $out/boot/boot.json
    '' +
@@ -409,12 +409,12 @@ let
     #!${pkgs.runtimeShell} -ex
     mkdir -p /run/kexec
     chmod 0700 /run/kexec
-    ${pkgs.busybox}/bin/zcat ${boot.initrd} > /run/kexec/initrd
+    ${pkgs.busybox}/bin/zcat ${boot.initrd.image} > /run/kexec/initrd
 
     ${pkgs.busybox}/bin/gzip /run/kexec/initrd
     ${pkgs.kexec-tools}/bin/kexec ${lib.escapeShellArgs ([
       "--load"
-    ] ++ lib.optionals (boot?initrd) [
+    ] ++ lib.optionals (boot?initrd.image) [
       "--initrd=/run/kexec/initrd.gz"
     ] ++ lib.optionals (boot?kernel.dtb) [
       "--dtb=${boot.kernel.dtb}"
@@ -527,7 +527,7 @@ let
                  "-net" "none"
                  "-vga" "none"
                  "-kernel" (toString configuration.boot.kernel.payload)
-                 "-initrd" (toString configuration.boot.initrd)
+                 "-initrd" (toString configuration.boot.initrd.image)
                ];
              in pkgs.writeShellScriptBin "vm-${configuration.name}.sh" ''
                exec ${pkgs.vmTools.qemu-common.qemuBinary pkgs.qemu} \

@@ -9,7 +9,7 @@
  # basic minimal initrd
  (util.forall-hosts
    (host-name: final: prev: infuse prev {
-     boot.initrd = _:
+     boot.initrd.image.__assign =
        (six-initrd {
          inherit lib;
          inherit (final) pkgs;
@@ -17,16 +17,24 @@
          .minimal;
   }))
 
+ (util.forall-hosts
+   (host-name: final: prev: infuse prev {
+     boot.initrd.image.__input.contents.__init =
+       final.boot.initrd.contents;
+   }))
+
  # abduco-enabled initrd
  (util.forall-hosts
   (host-name: final: prev: infuse prev ({
-    boot.initrd.__input.contents = _:
-      (six-initrd {
-        inherit lib;
-        inherit (final) pkgs;
-      }).abduco {
-        inherit (final.boot) ttys;
-      };
+    boot.initrd.contents =
+      lib.mapAttrs
+        (_: val: { __default = val; })
+        ((six-initrd {
+          inherit lib;
+          inherit (final) pkgs;
+        }).abduco {
+          ttys = final.boot.initrd.ttys;
+        });
   })))
 
  # minimum necessary contents
@@ -34,8 +42,8 @@
   (host-name: final: prev: let
     inherit (final) pkgs;
   in infuse prev ({
-    boot.initrd.__input.compress = _: "gzip";
-    boot.initrd.__input.contents = ({
+    boot.initrd.image.__input.compress = _: "gzip";
+    boot.initrd.image.__input.contents = ({
       "early/run".__append = [''
         modprobe btrfs || true # not sure why this is necessary
         modprobe ext4 || true  # sterling has rootfs as ext4
@@ -73,7 +81,7 @@
 
  (util.forall-hosts
   (host-name: final: prev: let inherit (final) pkgs; in infuse prev ( {
-    boot.initrd.__input.contents =
+    boot.initrd.image.__input.contents =
       let
         boot-ifconn = final.ifconns.${final.boot.nfsroot.subnet};
       in
@@ -123,7 +131,7 @@
  # cryptsetup-enabled initrd
  (util.forall-hosts
   (host-name: final: prev: let inherit (final) pkgs; in infuse prev ({
-    boot.initrd.__input.contents = lib.optionalAttrs (!final.tags.is-nfsroot) {
+    boot.initrd.image.__input.contents = lib.optionalAttrs (!final.tags.is-nfsroot) {
       "early/run".__append = [''
         for DEV in $(blkid | grep 'TYPE="crypto_LUKS"' | sed 's_^\([^\:]*\):.*$_\1_;t;d'); do
             # we're relying here on the fact that the keyfile passed by the
@@ -157,7 +165,7 @@
  # lvm-enabled initrd
  (util.forall-hosts
   (host-name: final: prev: let inherit (final) pkgs; in infuse prev ( {
-    boot.initrd.__input.contents = lib.optionalAttrs (!final.tags.is-nfsroot && !final.tags.dont-mount-root) {
+    boot.initrd.image.__input.contents = lib.optionalAttrs (!final.tags.is-nfsroot && !final.tags.dont-mount-root) {
       "early/run".__append = [''
         # lvm lvchange --addtag @boot vg/lv
         /sbin/lvm lvchange -a ay @boot
@@ -174,7 +182,7 @@
   (host-name: final: prev: let
     inherit (final) pkgs;
   in infuse prev ({
-    boot.initrd.__input.contents."early/finish".__init = [''
+    boot.initrd.contents."early/finish".__append = [''
       CONFIGURATION=/nix/var/nix/profiles/nextboot
       set -- $(cat /proc/cmdline)
       for x in "$@"; do

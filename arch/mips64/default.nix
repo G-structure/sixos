@@ -26,7 +26,7 @@
 let
   payload = pkgs.p.kernel.octeon.payload.override {
     kernel = final.boot.kernel.package;
-    initrd = final.boot.initrd;
+    initrd = final.boot.initrd.image;
     params = final.boot.kernel.params;
     dtb    = final.boot.kernel.dtb;
   };
@@ -39,18 +39,17 @@ in
     then "${final.boot.kernel.package}/dtbs/cavium-octeon/cn7130_ubnt_edgerouter_6p.dtb"
     else "${final.boot.kernel.package}/dtbs/cavium-octeon/cn7130_ubnt_edgerouter4.dtb";
 
-  boot.ttys.ttyS0 = _: 115200;
+  boot.initrd.ttys.ttyS0 = _: 115200;
   boot.kernel.console.device = _: "ttyS0";
 
-  boot.initrd.__input.contents."early/run" =
-    _: pkgs.writeScript "stage3.sh" (''
-      #!/bin/sh
-      while ! (busybox blkid | busybox grep -q 'LABEL="${root-device-label}"'); do
-        echo waiting for a device with 'LABEL="${root-device-label}"' to appear
-        sleep 1
-      done
-      mount -o rw LABEL="${root-device-label}" /root
-    '');
+  boot.initrd.image.__input.contents."early/run".__append = [''
+    #!/bin/sh
+    while ! (busybox blkid | busybox grep -q 'LABEL="${root-device-label}"'); do
+      echo waiting for a device with 'LABEL="${root-device-label}"' to appear
+      sleep 1
+    done
+    mount -o rw LABEL="${root-device-label}" /root
+  ''];
 
   boot.loader.update = _:
     let

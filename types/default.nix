@@ -1,12 +1,14 @@
 { lib
 , yants
 , root
-, tags
 , ...
 }:
 
+# you have to pass the site.tags in, since we derive types from it
+{ tags }@args:
+
+with yants;
 let
-  types = with yants; rec {
     # here's the problem
     # - some hosts are on a subnet, but i haven't declared the name of the interface for that subnet yet
     # - the "lo" interface can't have a named subnet, since it doesn't connect to any other machine
@@ -26,7 +28,7 @@ let
     };
     wg = struct "wg" {
       pubkey = string;
-      peers = attrs wgpeer;
+      peers = option (attrs wgpeer);
       fwmark = option int;
     };
     ifconn = struct "ifconn" {
@@ -60,7 +62,7 @@ let
             then struct "tag-type" (lib.mapAttrs (_: attrs2yants) val)
             else bool;
         in
-          attrs2yants tags;
+          attrs2yants args.tags;
 
       interfaces = attrs interface;
       ifconns = attrs ifconn; # attrname is the subnet name; assumes (sensibly) maximum one interface per subnet
@@ -110,6 +112,34 @@ let
       };
 
     };
-  };
+
+    hosts = attrs host;
+
+    site = struct "site" {
+      #host = attrs host;
+      host = any;
+      hosts = any;
+      site = any;
+      globals = any;  # "junk drawer" for passing things down the hierarchy
+
+      # tag-name -> overlay-that-is-applied-if-tag-is-present
+      tags = attrs function;
+
+      # subnet-name -> host-name -> ifconn
+      subnets = attrs (attrs ifconn);
+
+      overlay = list function;
+    };
+
 in
-  types
+  {
+    inherit interface;
+    inherit endpoint;
+    inherit wgpeer;
+    inherit wg;
+    inherit ifconn;
+    inherit ifname;
+    inherit host;
+    inherit hosts;
+    inherit site;
+  }

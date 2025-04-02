@@ -11,6 +11,7 @@
 , gw ? if dhcp then true else null    # set to `true` to use the device itself (with no gateway) as the default route
 , mtu ? null
 , mac ? null       # a hardware MAC address to use
+, attempts ? 3     # number of DHCP requests to send before giving up
 
 # FIXME instead of each of these being a string, they should be a list of
 # exec()-able paths
@@ -127,6 +128,7 @@ let
     #"--clientid="  # clientid
     #"--hostname="  # hostname
     "-S" # log to syslog in addition to /dev/stderr
+    "-t" "${toString attempts}"
     "-i" "${ifname}"
     "-s" "${dhcp-script}"
   ];

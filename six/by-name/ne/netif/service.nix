@@ -10,6 +10,7 @@
 , netmask ? if address==null then null else throw "missing netmask"
 , gw ? if dhcp then true else null    # set to `true` to use the device itself (with no gateway) as the default route
 , mtu ? null
+, mac ? null       # a hardware MAC address to use
 
 # FIXME instead of each of these being a string, they should be a list of
 # exec()-able paths
@@ -50,6 +51,8 @@ let
   '' + lib.optionalString (type != null) ''
     ${pkgs.iproute2}/bin/ip link del ${ifname} &>/dev/null || true
     ${pkgs.iproute2}/bin/ip link add ${ifname} type ${type}
+  '' + lib.optionalString (mac != null) ''
+    ${pkgs.busybox}/bin/busybox ip link set dev eth0 address ${mac}
   '' + lib.optionalString (mtu != null) ''
     ${pkgs.iproute2}/bin/ip link set ${ifname} mtu ${builtins.toString mtu}
   '' + lib.optionalString (pre-up != null) ''

@@ -82,50 +82,17 @@
  (util.forall-hosts
   (host-name: final: prev: let inherit (final) pkgs; in infuse prev ( {
     boot.initrd.image.__input.contents =
-      let
-        boot-ifconn = final.ifconns.${final.boot.nfsroot.subnet};
-      in
-        (lib.optionalAttrs final.tags.is-nfsroot {
+      lib.optionalAttrs final.tags.is-nfsroot {
       # TODO: identify "scratch drives" using the partition table uuid:
       #   grep -lxF eui.002538db11418915 /sys/block/* /wwid
       #   sfdisk --disk-id /dev/nvme0n1 33333333-3333-3333-3333-333333333333
-      #
-      # FIXME: this is totally unauthenticated
       "early/run".__append = lib.optionals final.tags.is-kgpe [ ''
         # the ownerboot kernel is probably missing features that s6-linux-init expects :(
         modprobe e1000e
       ''] ++ lib.optionals final.tags.is-rockpi4 [''
         modprobe dwmac_rk
-      ''] ++ [''
-        ifconfig ${boot-ifconn.ifname} ${boot-ifconn.ip} up netmask 255.255.255.0
-        mount -t tmpfs none -osize=8g /root
-        mkdir -p /root/nix/store /root/nix/var/nix/profiles/by-hostname /root/initrd /root/dev /root/proc /root/sys
-
-        mkdir -m 0555 -p /root/bin
-        ln -sfT /run/current-system/sw/bin/sh /root/bin/sh
-        mkdir -m 0555 -p /root/usr/bin
-        ln -sfT /run/current-system/sw/bin/env /root/usr/bin/env
-        mkdir -m 0555 -p /root/etc
-        echo 'root:x:0:0:root:/root:/run/current-system/sw/bin/sh' > /root/etc/passwd
-        echo 'sshd:x:1:1::/run/sshd:/run/current-system/sw/bin/false' >> /root/etc/passwd
-        echo 'root:x:0:' >  /root/etc/group
-        echo -e 'tty:x:900:\ndisk:x:901:\nuucp:x:902:\nfloppy:x:903:\ncdrom:x:904:\nkvm:x:905:\naudio:x:906:\nvideo:x:907:\ninput:x:908' >> /root/etc/group
-
-        mkdir -p /root/root
-        mkdir -p -m 0700 /root/root/.ssh
-        cat >> /root/root/.ssh/authorized_keys <<EOF
-        ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIO+81mtu7it+5hAOnbstiNrsaDz93YdDZ5EGxO6Iu2It user@ostraka
-        ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAsvi2+bDOMayZe61HfseRWCuy7MFTUg2iBLirjvcLtF user@snowden
-        ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILDWcYWBJkezqr6zQl/kSjCOHb1Lcl+rM8ZEQ+vEKgs0 user@conway
-        EOF
-
-        touch /init  # stupid busybox switch_root sanity-check
-        mount -t nfs -ov3,nolock,port=2049,mountport=2049,ro 192.168.22.6:/nix/var/nix/profiles/by-hostname /root/nix/var/nix/profiles/by-hostname
-        mount -t nfs -ov3,nolock,port=2049,mountport=2049,ro 192.168.22.6:/nix/store /root/nix/store
-        mkdir -p /root/nix/var/nix/profiles
-        ln -s by-hostname/${final.name}/nextboot /root/nix/var/nix/profiles/nextboot
       ''];
-    });
+    };
   })))
 
  # cryptsetup-enabled initrd

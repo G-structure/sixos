@@ -520,7 +520,7 @@ let
     if [ -e $(${pkgs.busybox}/bin/realpath /run/booted-system) ]; then
       ${pkgs.nix}/bin/nix-env -p /nix/var/nix/profiles/fallbackboot --set /run/booted-system
   '' + lib.optionalString (delete-generations != null) ''
-      ${pkgs.nix}/bin/nix-env -p /nix/var/nix/profiles/fallbackboot --delete-generations ${lib.escapeShellArg delete-generations}
+      ${pkgs.nix}/bin/nix-env -p /nix/var/nix/profiles/fallbackboot --delete-generations ${lib.escapeShellArg delete-generations} || true
   '' + ''
     fi
   '' + lib.optionalString (boot?loader.update) ''

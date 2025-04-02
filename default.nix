@@ -53,6 +53,8 @@
     shallow = true;
   }),
 
+  check-types ? true,
+
   site,
 
   extra-by-name-dirs ? [],
@@ -310,7 +312,7 @@ in {
 
   host =
 
-    lib.pipe overlays [
+    lib.pipe overlays ([
       # compose the extensions into a single (final: prev: ...)
       (lib.foldr lib.composeExtensions (_: _: {}))
 
@@ -318,9 +320,11 @@ in {
       (composed: lib.fix (final: composed final {}))
 
       # typecheck the result
+    ] ++ lib.optionals check-types [
       types.site
+    ] ++ [
 
       (x: x.hosts)
-    ];
+    ]);
 
 }

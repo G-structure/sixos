@@ -19,7 +19,8 @@ console) before attempting to boot sixos on an octeon router.  I recommend:
 3. Run `${configuration}/bin/nextboot`
 4. Reboot while pressing "enter" on the serial console to enter the uboot prompt
 5. Paste the commands below
-   NOTE: the (hexadecimal) value `20000000` below should match the `loadaddr-hex` parameter
+   - the (hexadecimal) value `20000000` below should match the `loadaddr-hex` parameter
+   - the `numcores` value should be `4` for the ER-4 and ER-6
 6. Type `reset`
 
 ```
@@ -27,6 +28,7 @@ env default -a
 setenv bootcmd  'run normal'
 setenv bootargs ''
 setenv loadaddr 20000000
+setenv numcores 4
 setenv normal   'fatload mmc 0 $(loadaddr) normal.ubootenv; env import $(loadaddr) $(filesize); fatload mmc 0 $(loadaddr) normal.uImage; env run boot'
 setenv fallback 'fatload mmc 0 $(loadaddr) fallback.ubootenv; env import $(loadaddr) $(filesize); fatload mmc 0 $(loadaddr) fallback.uImage; env run boot'
 setenv boot     'fdt addr $(loadaddr); fdt get value bootscript /images/script data; run bootscript'

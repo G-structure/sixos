@@ -24,12 +24,12 @@ while true; do
     echo
     temp_southbridge=$(sensors w83795g-i2c-1-2f | grep temp1: | sed s_[^C]*\+__ | sed s_\\..*__) 
     temp_cpu1=$(sensors k10temp-pci-00d3 | grep temp1: | sed s_[^C]*\+__ | sed s_\\..*__) 
-    temp_cpu2=$(sensors k10temp-pci-00c3 | grep temp1: | sed s_[^C]*\+__ | sed s_\\..*__)
+    temp_cpu0=$(sensors k10temp-pci-00c3 | grep temp1: | sed s_[^C]*\+__ | sed s_\\..*__)
     echo "southbridge = "''${temp_southbridge}" (ignored)"
     temp_southbridge=$(( ''${temp_southbridge} - 20 ))
+    echo "cpu0        = "''${temp_cpu0}
     echo "cpu1        = "''${temp_cpu1}
-    echo "cpu2        = "''${temp_cpu2}
-    temp=$(( ''${temp_cpu1} > ''${temp_cpu2} ? ''${temp_cpu1} : ''${temp_cpu2} ))
+    temp=$(( ''${temp_cpu1} > ''${temp_cpu0} ? ''${temp_cpu1} : ''${temp_cpu0} ))
    #temp=$(( ''${temp}  >''${temp_southbridge} ? ''${temp}   : ''${temp_southbridge} ))
     echo "temp        = "''${temp}
     maxtemp=${toString maxtemp}

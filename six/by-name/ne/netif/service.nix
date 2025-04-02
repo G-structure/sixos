@@ -78,7 +78,6 @@ let
   # go into an inactive state (until it is killed, or receives a SIGUSR1).
   dhcp-script = pkgs.writeScript "dhcp-script.sh" (''
     #!${pkgs.runtimeShell} -x
-    router=$serverid
     case $1 in
       bound|renew)
         ${pkgs.iproute2}/bin/ip addr replace $ip/$subnet dev ${ifname}

@@ -48,7 +48,7 @@ in
       echo waiting for a device with 'LABEL="${root-device-label}"' to appear
       sleep 1
     done
-    mount -o rw LABEL="${root-device-label}" /root
+    mount -o ro LABEL="${root-device-label}" /root || exit -1
   ''];
 
   boot.loader.update = _:

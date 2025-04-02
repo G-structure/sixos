@@ -27,8 +27,9 @@ let
   sysconfdir = "/run/ppp";
   runtime-dir = "/run/ppp";
 
-  conf-file = builtins.toFile "ppp-options" (''
-  '' + lib.optionalString (add-default-route != true) ''
+  conf-file = builtins.toFile "ppp-options" (
+    # `defaultroute` does not seem to work properly, so we emulate it in `ip-up`
+  ''
     nodefaultroute
   '' + ''
     ${lib.concatStringsSep "\n" (map (plugin: "plugin ${plugin}.so") plugins)}
@@ -47,8 +48,10 @@ let
     #!${pkgs.runtimeShell}
     # interface-name tty-device speed local-IP-address remote-IP-address ipparam
     INTERFACE_NAME="$1"
-  '' + lib.optionalString (lib.isString add-default-route) ''
-    ${pkgs.iproute2}/bin/ip route replace default dev "$1" table ${lib.escapeShellArg add-default-route}
+  '' + lib.optionalString (add-default-route != false) ''
+    ${pkgs.iproute2}/bin/ip route replace default dev "$1"${
+      lib.optionalString (lib.isString add-default-route)
+        " table ${lib.escapeShellArg add-default-route}"}
   '');
 
 in six.mkFunnel {

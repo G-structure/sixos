@@ -79,6 +79,7 @@ let
       fi
       echo
       echo 'rc.init: the configuration= environment variable was not set at boot time; dropping to a shell...'
+      echo '         you can recover from this by running `exec $CONFIGURATION/bin/activate`'
       echo
       export PATH=${pkgs.busybox}/bin
       exec ${runtimeShell}

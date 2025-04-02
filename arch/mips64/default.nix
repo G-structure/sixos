@@ -71,6 +71,45 @@ set-up-mtd = ''
 '';
 ```
 
+
+Copypasta to create a USB boot image:
+
+```
+DEV=/dev/sda
+BOOT=${DEV}1
+ROOT=${DEV}2
+CONFIGURATION=/nix/store/pmg6lf81hxydyripafgcpmwv1z7qinfb-six-system-hayden-unknown-nixpkgs-version
+
+parted $DEV mklabel gpt
+
+parted $DEV mkpart kernel 0% 50M
+mkfs -t msdos ${BOOT}
+mkdir -p /mnt/tmp
+mount ${BOOT} /mnt/tmp
+cp $(realpath $CONFIGURATION/boot/kernel) /mnt/tmp/normal.uImage
+echo "bootargs=root=LABEL=boot ro console=ttyS0,115200 init=$CONFIGURATION/boot/init configuration=$CONFIGURATION" | tee -a /mnt/tmp/normal.ubootenv
+umount /mnt/tmp
+fatlabel ${BOOT} boot
+
+parted $DEV mkpart root 50M 100%
+mkfs -t btrfs ${ROOT}
+mount -o noatime,compress=lzo ${ROOT} /mnt/tmp
+nix --extra-experimental-features nix-command copy --to /mnt/tmp $CONFIGURATION
+
+# FIXME: still need this because the initrd expects /run to be present
+mkdir -p /mnt/tmp/run
+
+# FIXME: still need this because s6-linux-init early PID1 expects sys,dev,proc to be present
+mkdir -p /mnt/tmp/{sys,dev,proc}
+
+btrfs fi label /mnt/tmp root
+umount /mnt/tmp
+
+eject ${DEV}
+```
+
+
+
 */
 
 { final

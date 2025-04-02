@@ -23,8 +23,8 @@ echo 1 > ''${BASE}/pwm1_enable
 while true; do
     echo
     temp_southbridge=$(${pkgs.lm_sensors}/bin/sensors w83795g-i2c-1-2f | grep temp1: | sed s_[^C]*\+__ | sed s_\\..*__) 
-    temp_cpu1=$(${pkgs.lm_sensors}/bin/sensors k10temp-pci-00d3 | grep temp1: | sed s_[^C]*\+__ | sed s_\\..*__) 
-    temp_cpu0=$(${pkgs.lm_sensors}/bin/sensors k10temp-pci-00c3 | grep temp1: | sed s_[^C]*\+__ | sed s_\\..*__)
+    temp_cpu0=$( ${pkgs.lm_sensors}/bin/sensors k10temp-pci-00c3                                      | grep temp1: | sed s_[^C]*\+__ | sed s_\\..*__)
+    temp_cpu1=$((${pkgs.lm_sensors}/bin/sensors k10temp-pci-00d3 2>/dev/null || echo 'temp1: +0.0°C') | grep temp1: | sed s_[^C]*\+__ | sed s_\\..*__)
     echo "southbridge = "''${temp_southbridge}" (ignored)"
     temp_southbridge=$(( ''${temp_southbridge} - 20 ))
     echo "cpu0        = "''${temp_cpu0}

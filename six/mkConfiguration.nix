@@ -381,6 +381,53 @@ let
       ${pkgs.nix}/bin/nix-env -p /nix/var/nix/profiles/activated --set ${builtins.placeholder "out"}
     else
       # first activation after a new bootup
+
+      # root filesystem is not yet initialized
+      if [[ ! -e /etc/passwd ]]; then
+
+        # We don't want to remount / read-write, so instead we bind-mount it and
+        # remount *that* as read-write.  To do so, we need an empty directory,
+        # preferably outside /nix/store.  We use /nix/var/nix/profiles/per-user
+        # since `nix copy` will create it.
+        RWMOUNT=/nix/var/nix/profiles/per-user
+
+        ${pkgs.busybox}/bin/mount --bind / $RWMOUNT
+        ${pkgs.busybox}/bin/mount -o remount,rw / $RWMOUNT
+        if [ "$(${pkgs.busybox}/bin/readlink /bin/sh)" != "/run/current-system/sw/bin/sh" ]; then
+          ${pkgs.busybox}/bin/mkdir -m 0555 -p $RWMOUNT/bin
+          ${pkgs.busybox}/bin/ln -sfT /run/current-system/sw/bin/sh $RWMOUNT/bin/sh
+        fi
+        if [ "$(${pkgs.busybox}/bin/readlink /usr/bin/sh)" != "/run/current-system/sw/bin/env" ]; then
+          ${pkgs.busybox}/bin/mkdir -m 0555 -p $RWMOUNT/usr/bin
+          ${pkgs.busybox}/bin/ln -sfT /run/current-system/sw/bin/env $RWMOUNT/usr/bin/env
+        fi
+        if [ ! -e /etc/passwd ]; then
+          ${pkgs.busybox}/bin/mkdir -m 0555 -p $RWMOUNT/etc
+          echo 'root:x:0:0:root:/root:/run/current-system/sw/bin/sh' > $RWMOUNT/etc/passwd
+          echo 'sshd:x:1:1::/run/sshd:/run/current-system/sw/bin/false' >> $RWMOUNT/etc/passwd
+        fi
+        if [ ! -e /etc/group ]; then
+          ${pkgs.busybox}/bin/mkdir -m 0555 -p $RWMOUNT/etc
+          echo 'root:x:0:'     >  $RWMOUNT/etc/group
+          echo 'tty:x:900:'    >> $RWMOUNT/etc/group
+          echo 'disk:x:901:'   >> $RWMOUNT/etc/group
+          echo 'uucp:x:902:'   >> $RWMOUNT/etc/group
+          echo 'floppy:x:903:' >> $RWMOUNT/etc/group
+          echo 'cdrom:x:904:'  >> $RWMOUNT/etc/group
+          echo 'kvm:x:905:'    >> $RWMOUNT/etc/group
+          echo 'audio:x:906:'  >> $RWMOUNT/etc/group
+          echo 'video:x:907:'  >> $RWMOUNT/etc/group
+          echo 'input:x:908:'  >> $RWMOUNT/etc/group
+        fi
+        ${pkgs.busybox}/bin/mkdir -p $RWMOUNT/tmp
+        ${pkgs.busybox}/bin/mkdir -p $RWMOUNT/sys
+        ${pkgs.busybox}/bin/mkdir -p $RWMOUNT/dev
+        ${pkgs.busybox}/bin/mkdir -p $RWMOUNT/proc
+        ${pkgs.busybox}/bin/mkdir -p $RWMOUNT/run
+
+        ${pkgs.busybox}/bin/umount $RWMOUNT
+      fi
+
       ${pkgs.busybox}/bin/ln -sfn ${builtins.placeholder "out"} /run/booted-system
       ${pkgs.busybox}/bin/ln -sfn ${builtins.placeholder "out"} /run/current-system
 

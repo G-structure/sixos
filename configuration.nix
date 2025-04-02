@@ -72,38 +72,6 @@ let
         "" = final.services.mount {
           where = "/";
           options = [ "remount" "rw" ];
-
-          # FIXME: this still isn't good enough; mdevd needs /etc/passwd and
-          # /etc/group, and it starts before root remounts read-write
-          post-up = ''
-            set +e  # best-effort
-            if [ "$(${host.pkgs.busybox}/bin/readlink /bin/sh)" != "/run/current-system/sw/bin/sh" ]; then
-              ${host.pkgs.busybox}/bin/mkdir -m 0555 -p /bin
-              ${host.pkgs.busybox}/bin/ln -sfT /run/current-system/sw/bin/sh /bin/sh
-            fi
-            if [ "$(${host.pkgs.busybox}/bin/readlink /usr/bin/sh)" != "/run/current-system/sw/bin/env" ]; then
-              ${host.pkgs.busybox}/bin/mkdir -m 0555 -p /usr/bin
-              ${host.pkgs.busybox}/bin/ln -sfT /run/current-system/sw/bin/env /usr/bin/env
-            fi
-            if [ ! -e /etc/passwd ]; then
-              ${host.pkgs.busybox}/bin/mkdir -m 0555 -p /etc
-              echo 'root:x:0:0:root:/root:/run/current-system/sw/bin/sh' > /etc/passwd
-              echo 'sshd:x:1:1::/run/sshd:/run/current-system/sw/bin/false' >> /etc/passwd
-            fi
-            if [ ! -e /etc/group ]; then
-              ${host.pkgs.busybox}/bin/mkdir -m 0555 -p /etc
-              echo 'root:x:0:'     >  /etc/group
-              echo 'tty:x:900:'    >> /etc/group
-              echo 'disk:x:901:'   >> /etc/group
-              echo 'uucp:x:902:'   >> /etc/group
-              echo 'floppy:x:903:' >> /etc/group
-              echo 'cdrom:x:904:'  >> /etc/group
-              echo 'kvm:x:905:'    >> /etc/group
-              echo 'audio:x:906:'  >> /etc/group
-              echo 'video:x:907:'  >> /etc/group
-              echo 'input:x:908:'  >> /etc/group
-            fi
-          '';
         };
       };
     })

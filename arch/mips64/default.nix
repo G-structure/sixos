@@ -31,6 +31,7 @@ setenv loadaddr 20000000
 setenv numcores 4
 setenv normal   'fatload mmc 0 $(loadaddr) normal.ubootenv; env import $(loadaddr) $(filesize); fatload mmc 0 $(loadaddr) normal.uImage; env run boot'
 setenv fallback 'fatload mmc 0 $(loadaddr) fallback.ubootenv; env import $(loadaddr) $(filesize); fatload mmc 0 $(loadaddr) fallback.uImage; env run boot'
+setenv usb      'usb start; fatload usb 0 $(loadaddr) normal.ubootenv; env import $(loadaddr) $(filesize); fatload usb 0 $(loadaddr) normal.uImage; env run boot'
 setenv boot     'fdt addr $(loadaddr); fdt get value bootscript /images/script data; run bootscript'
 saveenv
 reset

@@ -44,7 +44,6 @@ in
   boot.kernel.console.baud.__assign   = 115200;
 
   boot.initrd.image.__input.contents."early/run".__append = [''
-    #!/bin/sh
     while ! (busybox blkid | busybox grep -q 'LABEL="${root-device-label}"'); do
       echo waiting for a device with 'LABEL="${root-device-label}"' to appear
       sleep 1

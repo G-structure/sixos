@@ -52,6 +52,22 @@
 , basedir ? "/run/init"
 }:
 
+# TODO (from nixos)
+#
+#   mkdir -m 1777 /var/tmp
+#
+#   mkdir -p /var/empty
+#   ${pkgs.e2fsprogs}/bin/chattr -f -i /var/empty || true
+#   find /var/empty -mindepth 1 -delete
+#   chmod 0555 /var/empty
+#   chown root:root /var/empty
+#   ${pkgs.e2fsprogs}/bin/chattr -f +i /var/empty || true
+#
+#   mkdir -p /usr/bin
+#   chmod 0755 /usr/bin
+#   ln -sf ${config.environment.usrbinenv} /usr/bin/.env.tmp
+#   mv /usr/bin/.env.tmp /usr/bin/env # atomically replace /usr/bin/env
+
 let
   busybox = pkgs.pkgsStatic.busybox;
 
@@ -64,7 +80,8 @@ let
     # will exec() this script.  It can be used for one-time startup procedures
     # that must wait until after s6-svscan is ready to accept commands.
     #
-    # FIXME: why doesn't dump-env-vars-here work via miniboot?
+    # FIXME: should probably to keep retrying s6-rc on failure, or at least log
+    # the failure.
     #
     "rc.init" = writeScript "rc.init" (''
       #!${runtimeShell}
@@ -84,23 +101,6 @@ let
       export PATH=${pkgs.busybox}/bin
       exec ${runtimeShell}
     '');
-    # FIXME: the above should probably to keep retrying s6-rc on failure, or at
-    # least log the failure
-    # FIXME (from nixos)
-    #
-    #   mkdir -m 1777 /var/tmp
-    #
-    #   mkdir -p /var/empty
-    #   ${pkgs.e2fsprogs}/bin/chattr -f -i /var/empty || true
-    #   find /var/empty -mindepth 1 -delete
-    #   chmod 0555 /var/empty
-    #   chown root:root /var/empty
-    #   ${pkgs.e2fsprogs}/bin/chattr -f +i /var/empty || true
-    #
-    #   mkdir -p /usr/bin
-    #   chmod 0755 /usr/bin
-    #   ln -sf ${config.environment.usrbinenv} /usr/bin/.env.tmp
-    #   mv /usr/bin/.env.tmp /usr/bin/env # atomically replace /usr/bin/env
 
     # This is the `run` script for the `runleveld` service -- s6-linux-init
     # generates a `run` script which does a few process-state-setup chores and

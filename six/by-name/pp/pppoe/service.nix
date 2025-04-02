@@ -14,6 +14,20 @@
 , conf-text ? ""
 }:
 
+/* options to implement:
+       defaultroute-metric
+              Define the metric of the defaultroute and only add it if
+              there is no other default route with the same metric.  With
+              the default value of -1, the route is only added if there
+              is no default route at all.
+
+       replacedefaultroute
+              This option is a flag to the defaultroute option. If
+              defaultroute is set and this flag is also set, pppd
+              replaces an existing default route with the new default
+              route.  This option is privileged.
+
+*/
 
 let package' = package; in
 let

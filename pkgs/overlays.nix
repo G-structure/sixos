@@ -172,12 +172,6 @@ in [
 
     # sway/seatd
 
-    seatd.__output.patches       .__append =  [ ./patches/seatd/seatd-mlockall.patch ];
-    wlroots_0_14.__output.patches.__append =  [ ./patches/wlroots/wlroots-mlockall.patch ];
-    wlroots_0_16.__output.patches.__append =  [
-      ./patches/wlroots/wlroots-mlockall-0.15.1.patch
-      ./patches/wlroots/fix-wlroots-issue-3275.patch
-    ];
     swaylock.__output.patches.__append = [
       #
       # cherry-pick two patches that allow /etc/shadow to be world-readable

@@ -101,10 +101,8 @@ let
         in
         lib.mapAttrs
           (name: host-prev:
-            (make-host-attrnames-deterministic
-              (host-prev
-               // (overlay name hosts-final.${name} host-prev))
-              // { inherit (host-prev) tags; }))
+            (host-prev // (overlay name hosts-final.${name} host-prev))
+          )
           traced-hosts-prev
       );
 

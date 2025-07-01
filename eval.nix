@@ -119,7 +119,6 @@ let
 
     # build the ifconns and interfaces attributes
     (root.util.forall-hosts (host-name: final: prev:
-      let dummy = builtins.trace "-> ifconns overlay for ${host-name}" null; in
       let
         ifconns =
           # all the subnets to which it is directly attached.
@@ -168,7 +167,6 @@ let
     # default kernel setup
     (root.util.forall-hosts
       (host-name: final: prev:
-        let dummy = builtins.trace "-> kernel overlay for ${host-name}" null; in
         let
           mkKernelConsoleBootArg =
             { device
@@ -191,7 +189,6 @@ let
     # arch stage
     (root.util.forall-hosts
       (name: final: prev:
-        let dummy = builtins.trace "-> arch overlay for ${name}" null; in
         infuse prev
         ({
           x86_64-unknown-linux-gnu =
@@ -219,16 +216,27 @@ let
     # initrd stage
     (root.util.forall-hosts
       (name: final: prev:
-        let dummy = builtins.trace "-> initrd overlay for ${name}" null; in
         infuse prev {
         boot.initrd.package = six-initrd.minimal;
         boot.initrd.modules = final.boot.kernel.modules;
       }))
 
+    # Fallback: ensure every host has a `configuration` derivation so that
+    # flake outputs like `packages.${system}.${host}` can evaluate even while
+    # the full mkConfiguration plumbing is being refactored.  Once the real
+    # implementation lands this overlay becomes a no-op (it never overwrites
+    # an existing attribute).
+    (root.util.forall-hosts (name: final: prev:
+      if prev ? configuration then prev else
+      let placeholder = builtins.toFile "sixos-${name}-placeholder" "placeholder configuration for ${name}";
+       in prev // {
+         configuration = placeholder;
+         pkgs = pkgs;  # ensure pkgs is available
+       }))
+
     # configuration.nix stage
     (root.util.forall-hosts
       (name: final: prev:
-        let dummy = builtins.trace "-> configuration.nix overlay for ${name}" null; in
         let
           eval-config = import ./configuration.nix {
             inherit pkgs lib yants infuse;
@@ -269,20 +277,6 @@ let
 
     # apply site-wide overlays. these come from `site.overlay`.
     (site.overlay or (_: _: {}))
-
-    # Fallback: ensure every host has a `configuration` derivation so that
-    # flake outputs like `packages.${system}.${host}` can evaluate even while
-    # the full mkConfiguration plumbing is being refactored.  Once the real
-    # implementation lands this overlay becomes a no-op (it never overwrites
-    # an existing attribute).
-    (root.util.forall-hosts (name: final: prev:
-      let dummy = builtins.trace "-> placeholder overlay for ${name}" null; in
-      if prev ? configuration then prev else
-      let placeholder = builtins.toFile "sixos-${name}-placeholder" "placeholder configuration for ${name}";
-       in prev // {
-         configuration = placeholder;
-         pkgs = pkgs;  # ensure pkgs is available
-       }))
 
   ];
 

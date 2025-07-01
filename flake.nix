@@ -7,7 +7,6 @@
     six-initrd.url  = "github:g-structure/six-initrd";
     # Type validation library used throughout SixOS
     yants.url       = "github:divnix/yants";
-    yants.flake     = false;
     flake-parts.url = "github:hercules-ci/flake-parts";
     # readTree helper library comes from the tvl-fyi/depot repository.
     depot.url       = "github:tvl-fyi/depot";
@@ -39,8 +38,8 @@
             # 3. readTree – vendored via the `depot` input (non-flake).
             readTree-lib = import "${inputs.depot.outPath}/nix/readTree/default.nix" {};
 
-            # 4. yants – imported from the dedicated input (non-flake).
-            yants-lib = import "${inputs.yants.outPath}/default.nix" { lib = pkgs.lib; };
+            # 4. yants – is now a flake input.
+            yants-lib = inputs.yants;
 
             # 5. six-initrd helper library matching the host system.
             sixInitrd = import "${inputs."six-initrd".outPath}" {
@@ -106,8 +105,6 @@
               demoSite = sixos-lib.mkSite {
                 inherit system;
                 site = ./demo-site;
-                # Pass flake inputs to the SixOS evaluator.
-                inherit (inputs) infuse six-initrd yants readTree;
               };
             in {
               # TODO: restore this once host evaluation is fixed
@@ -121,8 +118,6 @@
               demoSite = sixos-lib.mkSite {
                 inherit system;
                 site = ./demo-site;
-                # Pass flake inputs to the SixOS evaluator.
-                inherit (inputs) infuse six-initrd yants readTree;
               };
             in {
               # TODO: restore this once host evaluation is fixed

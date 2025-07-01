@@ -107,10 +107,11 @@
                 site = ./demo-site;
               };
             in {
-              # TODO: restore this once host evaluation is fixed
-              # demo = demoSite.hosts.demo.configuration;
-              demo = pkgs.runCommand "demo-placeholder" {} "echo placeholder > $out";
-              default = config.packages.demo;
+              debug = pkgs.runCommand "debug-demo-host" {} ''
+                echo "Inspecting final.demoSite.hosts.demo attributes"
+                echo "${builtins.concatStringsSep "\n" (builtins.attrNames demoSite.hosts.demo)}" > $out
+              '';
+              default = config.packages.debug;
             };
 
           apps =

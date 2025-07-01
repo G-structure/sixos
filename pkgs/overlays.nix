@@ -126,7 +126,7 @@ in [
     };
     pinentry.__input.enabledFlavors.__assign = [ "curses" "tty" ];
     qutebrowser.__input.withPdfReader.__assign = false;
-    SDL2.__input.udevSupport.__assign = false;
+    #SDL2.__input.udevSupport.__assign = false;
     mpv-unwrapped.__input.javascriptSupport.__assign = false;
     mpv-unwrapped.__input.openalSupport.__assign = false;
     evince.__input.supportMultimedia.__assign = false;

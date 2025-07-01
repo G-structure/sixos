@@ -95,6 +95,12 @@ let
         in
         #types.eval-config
         infuse prev {
+          boot.__default = { };
+          boot.__infuse = {
+            kernel.package = _: pkgs.callPackage ./kernel.nix { };
+            kernel.modules = _: "${pkgs.callPackage ./kernel.nix { }}";
+            kernel.payload = _: "${pkgs.callPackage ./kernel.nix { }}/bzImage";
+          };
           build.__assign = eval-config.build or (throw "mkConfiguration did not expose .build");
           configuration.__assign = eval-config;
         }
@@ -130,6 +136,7 @@ let
                 nofixpoint-host = q // {
                   inherit (q) name canonical pkgs tags;
                   service-overlays = q.service-overlays or [ ];
+                  boot = q.boot or { };
                 };
               in
               nofixpoint-host
@@ -187,32 +194,7 @@ let
       prev // { inherit ifconns interfaces; }
     ))
 
-    # default kernel setup
-    (root.util.forall-hosts
-      (host-name: final: prev:
-        let
-          mkKernelConsoleBootArg =
-            { device
-            , baud ? null
-            }:
-            "console=${device}"
-            + lib.optionalString (baud != null) ",${toString baud}";
-        in
-        infuse prev {
-          boot.kernel.params = _: [
-            "root=LABEL=boot"
-            "ro"
-          ] ++ lib.optionals (final.boot?kernel.console) [
-            (mkKernelConsoleBootArg final.boot.kernel.console)
-          ];
-          boot.kernel.modules = _: "${final.boot.kernel.package}";
-          boot.kernel.payload = _: "${final.boot.kernel.package}/bzImage";
-          boot.kernel.package = _: final.pkgs.callPackage ./kernel.nix { };
-        }
-      ))
-
-
-
+    # moved default kernel setup AFTER host-specific overlays so `boot` exists for configuration phase
     # arch stage
     (root.util.forall-hosts
       (name: final: prev:
@@ -274,6 +256,30 @@ let
           site-prev.hosts;
       }
     )
+
+    # default kernel setup (reinserted after host-specific overlays)
+    (root.util.forall-hosts
+      (host-name: final: prev:
+        let
+          mkKernelConsoleBootArg =
+            { device
+            , baud ? null }:
+            "console=${device}" + lib.optionalString (baud != null) ",${toString baud}";
+        in
+        let kernelPkg = final.pkgs.callPackage ./kernel.nix { }; in
+        infuse prev {
+          boot.__default = { };
+          boot.kernel.params = _: [
+            "root=LABEL=boot"
+            "ro"
+          ] ++ lib.optionals (final.boot?kernel.console) [
+            (mkKernelConsoleBootArg final.boot.kernel.console)
+          ];
+          boot.kernel.modules = _: "${kernelPkg}";
+          boot.kernel.payload = _: "${kernelPkg}/bzImage";
+          boot.kernel.package = _: kernelPkg;
+        }
+      ))
 
     # apply site-wide overlays. these come from `site.overlay`.
     (site.overlay or (_: _: { }))

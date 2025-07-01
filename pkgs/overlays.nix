@@ -10,9 +10,9 @@ in [
   (final: prev: infuse prev ({
 
     # replace systemd/udev with libudev-zero
-    systemdMinimal.__assign = prev.libudev-zero;
-    systemd.__assign = prev.libudev-zero;
-    udev.__assign = prev.libudev-zero;
+    systemdMinimal.__assign = prev.libudev-zero // { override = _: prev.libudev-zero; };
+    systemd.__assign = prev.libudev-zero // { override = _: prev.libudev-zero; };
+    udev.__assign = prev.libudev-zero // { override = _: prev.libudev-zero; };
 
     # requires umockdev, which requires udev
     libgudev.__output.doCheck.__assign = false;
@@ -260,6 +260,12 @@ in [
       sphinx.__output.doCheck.__assign = false;
       sphinx.__output.doInstallCheck.__assign = false;
     };
+
+    # Disable ibus in SDL3 to satisfy assertion when dbusSupport is off
+    sdl3.__input.ibusSupport.__assign = false;
+    sdl3.__input.dbusSupport.__assign = true;
+
+    ibusSupport.__assign = false;
 
   }))
 ]

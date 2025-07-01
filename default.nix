@@ -1,50 +1,34 @@
 {
-  # This block of arguments with fetch* calls is intentionally kept for
-  # backward compatibility with non-flake users. It ensures that projects
-  # importing this file directly continue to work as before.
-  nixpkgs-path
-  ? builtins.fetchTarball {
-    url = "https://github.com/nixos/nixpkgs/archive/38edd08881ce4dc24056eec173b43587a93c990f.tar.gz";
-    sha256 = "049wkiwhw512wz95vxpxx65xisnd1z3ay0x5yzgmkzafcxvx9ckw";
-  },
+  # Mandatory inputs – callers *must* provide these explicitly.  The thin
+  # wrapper flake (see `flake.nix`) takes care of wiring them up so that
+  # users of the flake interface do **not** have to think about it.  Legacy
+  # import-based consumers now need to supply the arguments themselves.
 
-  lib
-  ? import "${nixpkgs-path}/lib",
+  # Target system triplet we are evaluating for (e.g. "x86_64-linux").
+  system,
 
-  infuse
-  ? ((import (builtins.fetchGit {
-    url = "https://codeberg.org/amjoseph/infuse.nix";
-    rev = "bb99266d1e65f137a38b7428a16ced77cd587abb";
-    shallow = true;
-  })) { inherit lib; }).v1.infuse,
+  # Pre-evaluated nixpkgs (attribute set) **path** that matches the system
+  # above.  We keep the historic name to avoid churn in downstream code.
+  nixpkgs-path,
 
-  readTree
-  ? import (builtins.fetchurl {
-    url = "https://codeberg.org/amjoseph/depot/raw/commit/874181181145c7004be6164baea912bde78f43f6/nix/readTree/default.nix";
-    sha256 = "1hfidfd92j2pkpznplnkx75ngw14kkb2la8kg763px03b4vz23zf";
-  }) {},
+  # Core libraries and helper inputs – all *pre-evaluated*.
+  lib,
+  infuse,
+  readTree,
+  yants,
 
-  yants
-  ? import (builtins.fetchurl {
-    url = "https://code.tvl.fyi/plain/nix/yants/default.nix";
-    sha256 = "026j3a02gnynv2r95sm9cx0avwhpgcamryyw9rijkmc278lxix8j";
-  }),
+  # six-initrd helper function (expects `{ lib, pkgs; }`).
+  six-initrd,
 
-  six-initrd
-  ? import (builtins.fetchGit {
-    url = "https://codeberg.org/amjoseph/six-initrd";
-    rev = "eeba355b70b7fbc6f7f439c8a76cef9d561e03b5";
-    shallow = true;
-  }),
-
+  # Behavioural flags / user supplied knobs – unchanged compared to the
+  # legacy interface.
   check-types ? true,
-
   site,
-
   extra-by-name-dirs ? [],
-
   extra-auto-args ? {},
 
+  # Catch-all for forward compatibility.
+  ...
 }@args:
 
 let
@@ -52,18 +36,26 @@ let
   # This file is now a compatibility wrapper.
   eval = import ./eval.nix;
 
-  # Determine the system for nixpkgs. This remains impure for the legacy entrypoint.
-  system = args.system or builtins.currentSystem;
-
-  # Instantiate nixpkgs for the target system.
+  # Instantiate nixpkgs for the requested system.  We **never** fall back to
+  # `builtins.currentSystem` any more – the caller must supply `system`.
   nixpkgs = import nixpkgs-path { inherit system; };
 
-  # Prepare the arguments for the new evaluation function.
+  # Arguments forwarded to the main evaluator (`eval.nix`).  We pass through
+  # *all* user-provided keys so that future additions propagate automatically.
   evalArgs = {
     inherit system nixpkgs lib infuse readTree yants;
-    six-initrd = six-initrd { inherit lib; pkgs = nixpkgs; };
+
+    # six-initrd wants the *package set* for the same system – construct it
+    # lazily to avoid repeating evaluation work when callers share pkgs.
+    six-initrd = six-initrd {
+      inherit lib;
+      pkgs = nixpkgs;
+    };
+
+    # legacy knobs
+    inherit site check-types extra-by-name-dirs extra-auto-args;
   } // args;
 
 in
-  # Call the new evaluator with the prepared arguments.
+  # Delegate the heavy lifting to `eval.nix`.
   eval evalArgs

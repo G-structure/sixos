@@ -7,6 +7,9 @@
     six-initrd.url  = "github:g-structure/six-initrd";
     depot.url       = "github:tvl-fyi/depot";
     depot.flake     = false;
+    # Type validation library used throughout SixOS
+    yants.url       = "github:divnix/yants";
+    yants.flake     = false;
     flake-parts.url = "github:hercules-ci/flake-parts";
   };
 
@@ -15,7 +18,28 @@
       systems = [ "x86_64-linux" "aarch64-linux" ];
       perSystem = { config, pkgs, system, ... }: {
         devShells.default = pkgs.mkShell {
-          buildInputs = with pkgs; [ s6-rc s6 nixfmt nil ];
+          buildInputs = with pkgs; [ s6-rc s6 nixfmt-classic nil ];
+          shellHook = ''
+            echo "Welcome to the SixOS dev shell for ${system}."
+            echo "Helpful commands:";
+            echo "  nix fmt          # format the codebase";
+            echo "  nix flake check  # run evaluation checks";
+          '';
+        };
+
+        # `nix fmt` support
+        formatter = pkgs.nixfmt-classic;
+
+        # Lightweight evaluation check to make sure the demo site still
+        # evaluates for this system.  The `mkSite` call happens during the
+        # *evaluation* phase – if it fails the entire flake check fails.
+        checks = {
+          eval-site = let
+            _ = self.lib.mkSite {
+              inherit system;
+              site = ../six-demo/site;
+            };
+          in pkgs.runCommand "eval-site" {} "echo ok > $out";
         };
       };
 
@@ -46,20 +70,29 @@
                 lib = pkgs.lib;
               }).v1.infuse;
 
-              # 3. six-initrd helper library matching the host system.  Its
+              # 3. readTree – vendored via the `depot` input (non-flake).
+              readTree-lib = import "${inputs.depot.outPath}/nix/readTree/default.nix" {};
+
+              # 4. yants – imported from the dedicated input (non-flake).
+              yants-lib = import "${inputs.yants.outPath}/default.nix" { lib = pkgs.lib; };
+
+              # 5. six-initrd helper library matching the host system.  Its
               #    default.nix expects `{ lib, pkgs }`.
               sixInitrd = import "${inputs."six-initrd".outPath}" {
                 lib  = pkgs.lib;
                 pkgs = pkgs;
               };
 
-              # 4. Invoke the legacy entrypoint whilst overriding the fetch*-based
+              # 6. Invoke the legacy entrypoint whilst overriding the fetch*-based
               #    defaults with the flake inputs prepared above.
               six = import ./. ({
                 nixpkgs-path = nixpkgs.outPath;
                 lib          = pkgs.lib;
                 infuse       = infuse-lib;
+                readTree     = readTree-lib;
+                yants        = yants-lib;
                 six-initrd   = sixInitrd;
+                system       = system;
                 # Forward user-supplied arguments such as `site`, keeping the
                 # historical parameter names.
                 inherit site extra-by-name-dirs extra-auto-args;

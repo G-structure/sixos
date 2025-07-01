@@ -158,7 +158,8 @@
         "flake-parts": "flake-parts",
         "infuse": "infuse",
         "nixpkgs": "nixpkgs_2",
-        "six-initrd": "six-initrd"
+        "six-initrd": "six-initrd",
+        "yants": "yants"
       }
     },
     "six-initrd": {
@@ -207,6 +208,22 @@
       "original": {
         "owner": "nix-systems",
         "repo": "default",
+        "type": "github"
+      }
+    },
+    "yants": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1686863218,
+        "narHash": "sha256-kooxYm3/3ornWtVBNHM3Zh020gACUyFX2G0VQXnB+mk=",
+        "owner": "divnix",
+        "repo": "yants",
+        "rev": "8f0da0dba57149676aa4817ec0c880fbde7a648d",
+        "type": "github"
+      },
+      "original": {
+        "owner": "divnix",
+        "repo": "yants",
         "type": "github"
       }
     }

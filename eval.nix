@@ -56,6 +56,7 @@ let
     inherit auto-args;
     inherit site;
     inherit pkgs; # Use the newly extended pkgs
+    inherit system; # Forward the system argument to site/host functions
   };
 
   # readTree invocation on the directory containing this file
@@ -118,6 +119,7 @@ let
 
     # build the ifconns and interfaces attributes
     (root.util.forall-hosts (host-name: final: prev:
+      let dummy = builtins.trace "-> ifconns overlay for ${host-name}" null; in
       let
         ifconns =
           # all the subnets to which it is directly attached.
@@ -166,6 +168,7 @@ let
     # default kernel setup
     (root.util.forall-hosts
       (host-name: final: prev:
+        let dummy = builtins.trace "-> kernel overlay for ${host-name}" null; in
         let
           mkKernelConsoleBootArg =
             { device
@@ -187,7 +190,9 @@ let
 
     # arch stage
     (root.util.forall-hosts
-      (name: final: prev: infuse prev
+      (name: final: prev:
+        let dummy = builtins.trace "-> arch overlay for ${name}" null; in
+        infuse prev
         ({
           x86_64-unknown-linux-gnu =
             import ./arch/amd64 {
@@ -213,7 +218,9 @@ let
 
     # initrd stage
     (root.util.forall-hosts
-      (name: final: prev: infuse prev {
+      (name: final: prev:
+        let dummy = builtins.trace "-> initrd overlay for ${name}" null; in
+        infuse prev {
         boot.initrd.package = six-initrd.minimal;
         boot.initrd.modules = final.boot.kernel.modules;
       }))
@@ -221,37 +228,32 @@ let
     # configuration.nix stage
     (root.util.forall-hosts
       (name: final: prev:
+        let dummy = builtins.trace "-> configuration.nix overlay for ${name}" null; in
         let
           eval-config = import ./configuration.nix {
-            inherit pkgs lib;
-            config = final;
+            inherit pkgs lib yants infuse;
+            six = import ./six {
+              inherit lib yants pkgs;
+              extra-by-name-dirs = extra-by-name-dirs;
+            };
+            host = final;
           };
         in
           #types.eval-config
-            eval-config
+            infuse prev {
+              build.__assign = eval-config.build or (throw "mkConfiguration did not expose .build");
+              configuration.__assign = eval-config;
+            }
       ))
 
-    # add `configuration` package containing the etc tree
-    (root.util.forall-hosts
-      (name: final: prev: {
-        # This is a bit of a hack around an apparent bug in nix, which manifests
-        # when a derivation has a name containing a `.` character when it also
-        # has a name override.  The system-generated default name includes a
-        # version number like `stage-2-2.0`, and this seems to cause problems.
-        # Here we manually compute a name that doesn't include the problematic
-        # character.
-        configuration = final.pkgs.stdenv.mkDerivation {
-          pname = "etc";
-          version = "2.0";
-          name = "${final.name}-${final.pname}-${final.version}";
-          phases = [ "installPhase" ];
-          installPhase = ''
-            mkdir -p $out/etc
-            cp -r ${final.build.etc}/* $out/etc
-            ln -s ${final.sw} $out/sw
-          '';
-        };
-      }))
+    /*
+      The historical overlay that builds a second configuration package from
+      `final.build.etc` has been disabled during the flake refactor because the
+      new evaluation pipeline no longer guarantees that `build.etc` exists at
+      this point.  Once the new mkConfiguration wiring lands we can restore a
+      proper implementation or drop it entirely if redundant.
+    */
+    (_: _: {})
 
     # apply host-specific overlays. these come from the `service-overlays`
     # attribute of each host definition.
@@ -267,6 +269,20 @@ let
 
     # apply site-wide overlays. these come from `site.overlay`.
     (site.overlay or (_: _: {}))
+
+    # Fallback: ensure every host has a `configuration` derivation so that
+    # flake outputs like `packages.${system}.${host}` can evaluate even while
+    # the full mkConfiguration plumbing is being refactored.  Once the real
+    # implementation lands this overlay becomes a no-op (it never overwrites
+    # an existing attribute).
+    (root.util.forall-hosts (name: final: prev:
+      let dummy = builtins.trace "-> placeholder overlay for ${name}" null; in
+      if prev ? configuration then prev else
+      let placeholder = builtins.toFile "sixos-${name}-placeholder" "placeholder configuration for ${name}";
+       in prev // {
+         configuration = placeholder;
+         pkgs = pkgs;  # ensure pkgs is available
+       }))
 
   ];
 

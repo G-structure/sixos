@@ -92,16 +92,20 @@ let
   #   1. applies `make-host-attrnames-deterministic` after each overlay
   #   2. prevents overlays from changing `host.${name}.tags`
   #
-  forall-hosts = host-overlay:
+  forall-hosts =
+    overlay:
     apply-to-hosts
       (hosts-final: hosts-prev:
+        let
+          traced-hosts-prev = builtins.trace "forall-hosts processing hosts: ${builtins.toString (builtins.attrNames hosts-prev)}" hosts-prev;
+        in
         lib.mapAttrs
           (name: host-prev:
             (make-host-attrnames-deterministic
               (host-prev
-               // (host-overlay name hosts-final.${name} host-prev))
+               // (overlay name hosts-final.${name} host-prev))
               // { inherit (host-prev) tags; }))
-          hosts-prev
+          traced-hosts-prev
       );
 
 in {

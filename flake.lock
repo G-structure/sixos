@@ -158,22 +158,8 @@
         "flake-parts": "flake-parts",
         "infuse": "infuse",
         "nixpkgs": "nixpkgs_2",
-        "six-demo": "six-demo",
         "six-initrd": "six-initrd",
         "yants": "yants"
-      }
-    },
-    "six-demo": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1751347462,
-        "narHash": "sha256-uoR8cfqKTKE8b/DtpPLO0BUTiouYnW4z20zASZays9w=",
-        "path": "/home/freiza/trust/six-demo",
-        "type": "path"
-      },
-      "original": {
-        "path": "/home/freiza/trust/six-demo",
-        "type": "path"
       }
     },
     "six-initrd": {

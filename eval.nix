@@ -81,6 +81,26 @@ let
 
   overlays = [
 
+    # configuration.nix stage - placed FIRST so it executes LAST (after all host modifications)
+    (root.util.forall-hosts
+      (name: final: prev:
+        let
+          eval-config = import ./configuration.nix {
+            inherit pkgs lib yants infuse;
+            six = import ./six {
+              inherit lib yants pkgs;
+              extra-by-name-dirs = extra-by-name-dirs;
+            };
+            host = final;
+          };
+        in
+          #types.eval-config
+            infuse prev {
+              build.__assign = eval-config.build or (throw "mkConfiguration did not expose .build");
+              configuration.__assign = eval-config;
+            }
+      ))
+
     # initial host set: populate attrnames from site.hosts
     (site-final: site-prev:
       #types.site
@@ -186,6 +206,8 @@ let
         }
       ))
 
+
+
     # arch stage
     (root.util.forall-hosts
       (name: final: prev:
@@ -213,7 +235,7 @@ let
           "" = {};
         }."${final.pkgs.system}" or {})))
 
-    # initrd stage
+        # initrd stage
     (root.util.forall-hosts
       (name: final: prev:
         infuse prev {
@@ -234,34 +256,7 @@ let
          pkgs = pkgs;  # ensure pkgs is available
        }))
 
-    # configuration.nix stage
-    (root.util.forall-hosts
-      (name: final: prev:
-        let
-          eval-config = import ./configuration.nix {
-            inherit pkgs lib yants infuse;
-            six = import ./six {
-              inherit lib yants pkgs;
-              extra-by-name-dirs = extra-by-name-dirs;
-            };
-            host = final;
-          };
-        in
-          #types.eval-config
-            infuse prev {
-              build.__assign = eval-config.build or (throw "mkConfiguration did not expose .build");
-              configuration.__assign = eval-config;
-            }
-      ))
 
-    /*
-      The historical overlay that builds a second configuration package from
-      `final.build.etc` has been disabled during the flake refactor because the
-      new evaluation pipeline no longer guarantees that `build.etc` exists at
-      this point.  Once the new mkConfiguration wiring lands we can restore a
-      proper implementation or drop it entirely if redundant.
-    */
-    (_: _: {})
 
     # apply host-specific overlays. these come from the `service-overlays`
     # attribute of each host definition.

@@ -110,7 +110,10 @@
               debug = pkgs.runCommand "debug-demo-host" {} ''
                 echo "Inspecting final.demoSite.hosts.demo attributes"
                 echo "${builtins.concatStringsSep "\n" (builtins.attrNames demoSite.hosts.demo)}" > $out
+                echo "" >> $out
+                echo "Configuration exists: ${if demoSite.hosts.demo ? configuration then "YES" else "NO"}" >> $out
               '';
+              demo = demoSite.hosts.demo.configuration;
               default = config.packages.debug;
             };
 
@@ -121,17 +124,9 @@
                 site = ./demo-site;
               };
             in {
-              # TODO: restore this once host evaluation is fixed
-              # demo-vm = {
-              #   type = "app";
-              #   program = "${demoSite.hosts.demo.configuration.vm}";
-              # };
               demo-vm = {
                 type = "app";
-                program = pkgs.writeShellScript "placeholder-vm" ''
-                  echo "VM is currently disabled due to an evaluation error."
-                  exit 1
-                '';
+                program = "${demoSite.hosts.demo.configuration.vm}";
               };
               default = config.apps.demo-vm;
             };

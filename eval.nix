@@ -55,7 +55,7 @@ let
     inherit root;
     inherit auto-args;
     inherit site;
-    nixpkgs = pkgs; # Use the newly extended pkgs
+    inherit pkgs; # Use the newly extended pkgs
   };
 
   # readTree invocation on the directory containing this file
@@ -101,6 +101,7 @@ let
                     #site = throw "immutable fields of host must not depend on the site argument";
                     site = site-final;
                     pkgs = throw "immutable fields of host must not depend on the pkgs argument";
+                    inherit system;
                   };
                   q = nofixpoint-host' // {
                     inherit name;
@@ -222,8 +223,7 @@ let
       (name: final: prev:
         let
           eval-config = import ./configuration.nix {
-            inherit (final) pkgs;
-            inherit lib;
+            inherit pkgs lib;
             config = final;
           };
         in
@@ -248,12 +248,27 @@ let
           installPhase = ''
             mkdir -p $out/etc
             cp -r ${final.build.etc}/* $out/etc
+            ln -s ${final.sw} $out/sw
           '';
         };
       }))
 
-    site.overlay or (_: _: {})
+    # apply host-specific overlays. these come from the `service-overlays`
+    # attribute of each host definition.
+    (site-final: site-prev:
+      site-prev // {
+        hosts = lib.mapAttrs
+          (name: host-prev:
+            lib.fix (self: lib.foldr lib.pipe self host-prev.service-overlays)
+          )
+          site-prev.hosts;
+      }
+    )
+
+    # apply site-wide overlays. these come from `site.overlay`.
+    (site.overlay or (_: _: {}))
 
   ];
+
 in
-  lib.fix (self: lib.foldr lib.pipe self overlays) 
+  lib.fix (self: lib.foldr (overlay: acc: overlay self acc) {} overlays) 

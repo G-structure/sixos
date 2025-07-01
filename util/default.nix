@@ -43,7 +43,6 @@ let
         (readTree.fix (self: (readTree {
           args = { root = self; } // args;
           path = arg;
-          rootDir = false;
         })))
     else arg;
 

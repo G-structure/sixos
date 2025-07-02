@@ -129,7 +129,10 @@
           {
             demo-vm = {
               type = "app";
-              program = "${demoSite.hosts.demo.configuration.vm}";
+              # The vm attribute is a derivation containing the executable script
+              # under bin/.  Point directly to that script so `nix run` can
+              # execute it without a Permission denied error.
+              program = pkgs.lib.getExe demoSite.hosts.demo.configuration.vm;
             };
             default = config.apps.demo-vm;
           };

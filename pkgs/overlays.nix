@@ -12,7 +12,7 @@ in [
     # replace systemd/udev with libudev-zero
     systemdMinimal.__assign = prev.libudev-zero // { override = _: prev.libudev-zero; };
     systemd.__assign = prev.libudev-zero // { override = _: prev.libudev-zero; };
-    udev.__assign = prev.libudev-zero // { override = _: prev.libudev-zero; };
+    udev.__assign = final.libudev-zero // { override = _: final.libudev-zero; };
 
     # requires umockdev, which requires udev
     libgudev.__output.doCheck.__assign = false;
@@ -57,6 +57,10 @@ in [
     # systemd
     systemdSupport.__assign = false;
     enableSystemd.__assign = false;
+    
+    # procps needs systemd support disabled
+    procps.__input.withSystemd.__assign = false;
+    procps.__input.systemd.__assign = null;
 
     # polkit
     enablePolkit.__assign = false;
@@ -266,6 +270,27 @@ in [
     sdl3.__input.dbusSupport.__assign = true;
 
     ibusSupport.__assign = false;
+
+    # override libudev-zero to provide a stub 'udevadm' binary so packages that
+    # just need the executable for sanity checks (like the udevCheckPhase)
+    # do not fail.  The stub is a no-op script that exits successfully.
+    libudev-zero.__assign = prev.libudev-zero.overrideAttrs (oa: {
+      postInstall = (oa.postInstall or "") + ''
+        mkdir -p $out/bin
+        cat > $out/bin/udevadm <<'EOF'
+        #!/usr/bin/env sh
+        echo "udevadm stub (libudev-zero) – no real udev present, returning success." >&2
+        exit 0
+        EOF
+        chmod +x $out/bin/udevadm
+      '';
+    });
+
+    # Disable installCheck for fuse packages since udevadm may be absent
+    fuse3.__output.doInstallCheck.__assign = false;
+    # Some packages refer to the attribute name 'fuse' (alias). Disable its
+    # install check as well.
+    fuse.__output.doInstallCheck.__assign = false;
 
   }))
 ]

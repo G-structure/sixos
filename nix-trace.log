@@ -1,0 +1,464 @@
+warning: Git tree '/home/freiza/trust/sixos' is dirty
+trace: forall-hosts processing hosts: demo
+trace: forall-hosts processing hosts: demo
+trace: forall-hosts processing hosts: demo
+error:
+       … while calling anonymous lambda
+         at /nix/store/fks9sdzd2lxk1g63vprm3rqbfqx1q9v3-source/lib/attrsets.nix:1182:17:
+         1181|         mapAttrs (
+         1182|           name: value:
+             |                 ^
+         1183|           if isAttrs value && cond value then recurse (path ++ [ name ]) value else f (path ++ [ name ]) value
+
+       … from call site
+         at /nix/store/fks9sdzd2lxk1g63vprm3rqbfqx1q9v3-source/lib/attrsets.nix:1183:85:
+         1182|           name: value:
+         1183|           if isAttrs value && cond value then recurse (path ++ [ name ]) value else f (path ++ [ name ]) value
+             |                                                                                     ^
+         1184|         );
+
+       … while calling anonymous lambda
+         at /nix/store/fks9sdzd2lxk1g63vprm3rqbfqx1q9v3-source/lib/modules.nix:273:71:
+          272|           # For definitions that have an associated option
+          273|           declaredConfig = mapAttrsRecursiveCond (v: !isOption v) (_: v: v.value) options;
+             |                                                                       ^
+          274|
+
+       … while evaluating the attribute 'value'
+         at /nix/store/fks9sdzd2lxk1g63vprm3rqbfqx1q9v3-source/lib/modules.nix:1084:7:
+         1083|     // {
+         1084|       value = addErrorContext "while evaluating the option `${showOption loc}':" value;
+             |       ^
+         1085|       inherit (res.defsFinal') highestPrio;
+
+       … while evaluating the option `flake.apps.x86_64-linux.demo-vm.program':
+
+       … while evaluating the attribute 'mergedValue'
+         at /nix/store/fks9sdzd2lxk1g63vprm3rqbfqx1q9v3-source/lib/modules.nix:1131:5:
+         1130|     # Type-check the remaining definitions, and merge them. Or throw if no definitions.
+         1131|     mergedValue =
+             |     ^
+         1132|       if isDefined then
+
+       … while evaluating a branch condition
+         at /nix/store/fks9sdzd2lxk1g63vprm3rqbfqx1q9v3-source/lib/modules.nix:1132:7:
+         1131|     mergedValue =
+         1132|       if isDefined then
+             |       ^
+         1133|         if all (def: type.check def.value) defsFinal then
+
+       … while evaluating the attribute 'values'
+         at /nix/store/fks9sdzd2lxk1g63vprm3rqbfqx1q9v3-source/lib/modules.nix:1125:9:
+         1124|       {
+         1125|         values = defs''';
+             |         ^
+         1126|         inherit (defs'') highestPrio;
+
+       … while evaluating a branch condition
+         at /nix/store/fks9sdzd2lxk1g63vprm3rqbfqx1q9v3-source/lib/modules.nix:1119:11:
+         1118|           # Avoid sorting if we don't have to.
+         1119|           if any (def: def.value._type or "" == "order") defs''.values then
+             |           ^
+         1120|             sortProperties defs''.values
+
+       … while calling the 'any' builtin
+         at /nix/store/fks9sdzd2lxk1g63vprm3rqbfqx1q9v3-source/lib/modules.nix:1119:14:
+         1118|           # Avoid sorting if we don't have to.
+         1119|           if any (def: def.value._type or "" == "order") defs''.values then
+             |              ^
+         1120|             sortProperties defs''.values
+
+       … while evaluating the attribute 'values'
+         at /nix/store/fks9sdzd2lxk1g63vprm3rqbfqx1q9v3-source/lib/modules.nix:1252:7:
+         1251|     {
+         1252|       values = concatMap (def: if getPrio def == highestPrio then [ (strip def) ] else [ ]) defs;
+             |       ^
+         1253|       inherit highestPrio;
+
+       … while calling the 'concatMap' builtin
+         at /nix/store/fks9sdzd2lxk1g63vprm3rqbfqx1q9v3-source/lib/modules.nix:1252:16:
+         1251|     {
+         1252|       values = concatMap (def: if getPrio def == highestPrio then [ (strip def) ] else [ ]) defs;
+             |                ^
+         1253|       inherit highestPrio;
+
+       … while calling the 'concatMap' builtin
+         at /nix/store/fks9sdzd2lxk1g63vprm3rqbfqx1q9v3-source/lib/modules.nix:1099:17:
+         1098|         # Process mkMerge and mkIf properties.
+         1099|         defs' = concatMap (
+             |                 ^
+         1100|           m:
+
+       … while calling anonymous lambda
+         at /nix/store/fks9sdzd2lxk1g63vprm3rqbfqx1q9v3-source/lib/modules.nix:1100:11:
+         1099|         defs' = concatMap (
+         1100|           m:
+             |           ^
+         1101|           map (
+
+       … while calling the 'map' builtin
+         at /nix/store/fks9sdzd2lxk1g63vprm3rqbfqx1q9v3-source/lib/modules.nix:1101:11:
+         1100|           m:
+         1101|           map (
+             |           ^
+         1102|             value:
+
+       … while evaluating definitions from `/nix/store/k31xbp4dli6ibphay5dkms5cldry2j8a-source/modules/transposition.nix':
+
+       … from call site
+         at /nix/store/fks9sdzd2lxk1g63vprm3rqbfqx1q9v3-source/lib/modules.nix:1110:80:
+         1109|               }
+         1110|           ) (addErrorContext "while evaluating definitions from `${m.file}':" (dischargeProperties m.value))
+             |                                                                                ^
+         1111|         ) defs;
+
+       … while calling 'dischargeProperties'
+         at /nix/store/fks9sdzd2lxk1g63vprm3rqbfqx1q9v3-source/lib/modules.nix:1203:5:
+         1202|   dischargeProperties =
+         1203|     def:
+             |     ^
+         1204|     if def._type or "" == "merge" then
+
+       … while evaluating a branch condition
+         at /nix/store/fks9sdzd2lxk1g63vprm3rqbfqx1q9v3-source/lib/modules.nix:1204:5:
+         1203|     def:
+         1204|     if def._type or "" == "merge" then
+             |     ^
+         1205|       concatMap dischargeProperties def.contents
+
+       … while evaluating the attribute 'value'
+         at /nix/store/fks9sdzd2lxk1g63vprm3rqbfqx1q9v3-source/lib/modules.nix:770:21:
+          769|             inherit (module) file;
+          770|             inherit value;
+             |                     ^
+          771|           }) module.config
+
+       … from call site
+         at /nix/store/fks9sdzd2lxk1g63vprm3rqbfqx1q9v3-source/lib/modules.nix:770:21:
+          769|             inherit (module) file;
+          770|             inherit value;
+             |                     ^
+          771|           }) module.config
+
+       … while calling anonymous lambda
+         at /nix/store/fks9sdzd2lxk1g63vprm3rqbfqx1q9v3-source/lib/attrsets.nix:1182:17:
+         1181|         mapAttrs (
+         1182|           name: value:
+             |                 ^
+         1183|           if isAttrs value && cond value then recurse (path ++ [ name ]) value else f (path ++ [ name ]) value
+
+       … from call site
+         at /nix/store/fks9sdzd2lxk1g63vprm3rqbfqx1q9v3-source/lib/attrsets.nix:1183:85:
+         1182|           name: value:
+         1183|           if isAttrs value && cond value then recurse (path ++ [ name ]) value else f (path ++ [ name ]) value
+             |                                                                                     ^
+         1184|         );
+
+       … while calling anonymous lambda
+         at /nix/store/fks9sdzd2lxk1g63vprm3rqbfqx1q9v3-source/lib/modules.nix:273:71:
+          272|           # For definitions that have an associated option
+          273|           declaredConfig = mapAttrsRecursiveCond (v: !isOption v) (_: v: v.value) options;
+             |                                                                       ^
+          274|
+
+       … while evaluating the attribute 'value'
+         at /nix/store/fks9sdzd2lxk1g63vprm3rqbfqx1q9v3-source/lib/modules.nix:1084:7:
+         1083|     // {
+         1084|       value = addErrorContext "while evaluating the option `${showOption loc}':" value;
+             |       ^
+         1085|       inherit (res.defsFinal') highestPrio;
+
+       … while evaluating the option `perSystem.x86_64-linux.apps.demo-vm.program':
+
+       (10 duplicate frames omitted)
+
+       … while evaluating definitions from `/nix/store/svqbs8dy1vjbrpmccn9gd27a6qn6szly-source/flake.nix, via option perSystem':
+
+       … from call site
+         at /nix/store/fks9sdzd2lxk1g63vprm3rqbfqx1q9v3-source/lib/modules.nix:1110:80:
+         1109|               }
+         1110|           ) (addErrorContext "while evaluating definitions from `${m.file}':" (dischargeProperties m.value))
+             |                                                                                ^
+         1111|         ) defs;
+
+       … while calling 'dischargeProperties'
+         at /nix/store/fks9sdzd2lxk1g63vprm3rqbfqx1q9v3-source/lib/modules.nix:1203:5:
+         1202|   dischargeProperties =
+         1203|     def:
+             |     ^
+         1204|     if def._type or "" == "merge" then
+
+       … while evaluating a branch condition
+         at /nix/store/fks9sdzd2lxk1g63vprm3rqbfqx1q9v3-source/lib/modules.nix:1204:5:
+         1203|     def:
+         1204|     if def._type or "" == "merge" then
+             |     ^
+         1205|       concatMap dischargeProperties def.contents
+
+       … while evaluating the attribute 'value'
+         at /nix/store/fks9sdzd2lxk1g63vprm3rqbfqx1q9v3-source/lib/modules.nix:770:21:
+          769|             inherit (module) file;
+          770|             inherit value;
+             |                     ^
+          771|           }) module.config
+
+       … from call site
+         at /nix/store/svqbs8dy1vjbrpmccn9gd27a6qn6szly-source/flake.nix:132:28:
+          131|               type = "app";
+          132|               program = "${demoSite.hosts.demo.configuration.vm}";
+             |                            ^
+          133|             };
+
+       … while calling anonymous lambda
+         at /nix/store/svqbs8dy1vjbrpmccn9gd27a6qn6szly-source/util/default.nix:103:18:
+          102|         lib.mapAttrs
+          103|           (name: host-prev:
+             |                  ^
+          104|             (host-prev // (overlay name hosts-final.${name} host-prev))
+
+       … in the left operand of the update (//) operator
+         at /nix/store/svqbs8dy1vjbrpmccn9gd27a6qn6szly-source/util/default.nix:104:24:
+          103|           (name: host-prev:
+          104|             (host-prev // (overlay name hosts-final.${name} host-prev))
+             |                        ^
+          105|           )
+
+       … from call site
+         at /nix/store/svqbs8dy1vjbrpmccn9gd27a6qn6szly-source/util/default.nix:104:14:
+          103|           (name: host-prev:
+          104|             (host-prev // (overlay name hosts-final.${name} host-prev))
+             |              ^
+          105|           )
+
+       … while calling anonymous lambda
+         at /nix/store/svqbs8dy1vjbrpmccn9gd27a6qn6szly-source/util/default.nix:103:18:
+          102|         lib.mapAttrs
+          103|           (name: host-prev:
+             |                  ^
+          104|             (host-prev // (overlay name hosts-final.${name} host-prev))
+
+       … in the left operand of the update (//) operator
+         at /nix/store/svqbs8dy1vjbrpmccn9gd27a6qn6szly-source/util/default.nix:104:24:
+          103|           (name: host-prev:
+          104|             (host-prev // (overlay name hosts-final.${name} host-prev))
+             |                        ^
+          105|           )
+
+       … from call site
+         at /nix/store/svqbs8dy1vjbrpmccn9gd27a6qn6szly-source/util/default.nix:104:14:
+          103|           (name: host-prev:
+          104|             (host-prev // (overlay name hosts-final.${name} host-prev))
+             |              ^
+          105|           )
+
+       … while calling anonymous lambda
+         at /nix/store/svqbs8dy1vjbrpmccn9gd27a6qn6szly-source/util/default.nix:103:18:
+          102|         lib.mapAttrs
+          103|           (name: host-prev:
+             |                  ^
+          104|             (host-prev // (overlay name hosts-final.${name} host-prev))
+
+       … in the right operand of the update (//) operator
+         at /nix/store/svqbs8dy1vjbrpmccn9gd27a6qn6szly-source/util/default.nix:104:24:
+          103|           (name: host-prev:
+          104|             (host-prev // (overlay name hosts-final.${name} host-prev))
+             |                        ^
+          105|           )
+
+       … from call site
+         at /nix/store/svqbs8dy1vjbrpmccn9gd27a6qn6szly-source/util/default.nix:104:28:
+          103|           (name: host-prev:
+          104|             (host-prev // (overlay name hosts-final.${name} host-prev))
+             |                            ^
+          105|           )
+
+       … while calling anonymous lambda
+         at /nix/store/svqbs8dy1vjbrpmccn9gd27a6qn6szly-source/eval.nix:137:21:
+          136|     (root.util.forall-hosts
+          137|       (name: final: prev:
+             |                     ^
+          138|         let trace-prev = builtins.trace "trace2: prev before arch" prev; in
+
+       … from call site
+         at /nix/store/svqbs8dy1vjbrpmccn9gd27a6qn6szly-source/eval.nix:139:9:
+          138|         let trace-prev = builtins.trace "trace2: prev before arch" prev; in
+          139|         infuse prev
+             |         ^
+          140|           (
+
+       … while calling 'flip'
+         at /nix/store/h2bn031b0fj0ymv9v7bv5rcdjx58y2l9-source/lib/trivial.nix:306:11:
+          305|   flip =
+          306|     f: a: b:
+             |           ^
+          307|     f b a;
+
+       … from call site
+         at /nix/store/h2bn031b0fj0ymv9v7bv5rcdjx58y2l9-source/lib/trivial.nix:307:5:
+          306|     f: a: b:
+          307|     f b a;
+             |     ^
+          308|
+
+       … while calling 'flip-infuse'
+         at /nix/store/qgzbakg50dy8sh7pwq4rcdmrkk6k1m84-source/default.nix:239:23:
+          238|
+          239|   flip-infuse = path: infusion:
+             |                       ^
+          240|     flip-infuse-desugared path (desugar path infusion);
+
+       … from call site
+         at /nix/store/qgzbakg50dy8sh7pwq4rcdmrkk6k1m84-source/default.nix:240:5:
+          239|   flip-infuse = path: infusion:
+          240|     flip-infuse-desugared path (desugar path infusion);
+             |     ^
+          241|
+
+       … while calling 'flip-infuse-desugared'
+         at /nix/store/qgzbakg50dy8sh7pwq4rcdmrkk6k1m84-source/default.nix:242:33:
+          241|
+          242|   flip-infuse-desugared = path: infusion:
+             |                                 ^
+          243|     flip-infuse-desugared-pruned path (prune path infusion);
+
+       … from call site
+         at /nix/store/qgzbakg50dy8sh7pwq4rcdmrkk6k1m84-source/default.nix:243:5:
+          242|   flip-infuse-desugared = path: infusion:
+          243|     flip-infuse-desugared-pruned path (prune path infusion);
+             |     ^
+          244|
+
+       … while calling 'flip-infuse-desugared-pruned'
+         at /nix/store/qgzbakg50dy8sh7pwq4rcdmrkk6k1m84-source/default.nix:247:5:
+          246|     path:     # attrpath relative to top-level call; only for error reporting
+          247|     infusion: # infusion to infuse upon the target attrset
+             |     ^
+          248|
+
+       … while evaluating a branch condition
+         at /nix/store/qgzbakg50dy8sh7pwq4rcdmrkk6k1m84-source/default.nix:256:5:
+          255|
+          256|     if isFunction infusion
+             |     ^
+          257|     then infusion
+
+       … from call site
+         at /nix/store/qgzbakg50dy8sh7pwq4rcdmrkk6k1m84-source/default.nix:256:8:
+          255|
+          256|     if isFunction infusion
+             |        ^
+          257|     then infusion
+
+       … while calling 'isFunction'
+         at /nix/store/h2bn031b0fj0ymv9v7bv5rcdjx58y2l9-source/lib/trivial.nix:1023:16:
+         1022|   */
+         1023|   isFunction = f: builtins.isFunction f || (f ? __functor && isFunction (f.__functor f));
+             |                ^
+         1024|
+
+       … in the left operand of the OR (||) operator
+         at /nix/store/h2bn031b0fj0ymv9v7bv5rcdjx58y2l9-source/lib/trivial.nix:1023:41:
+         1022|   */
+         1023|   isFunction = f: builtins.isFunction f || (f ? __functor && isFunction (f.__functor f));
+             |                                         ^
+         1024|
+
+       … while calling the 'isFunction' builtin
+         at /nix/store/h2bn031b0fj0ymv9v7bv5rcdjx58y2l9-source/lib/trivial.nix:1023:19:
+         1022|   */
+         1023|   isFunction = f: builtins.isFunction f || (f ? __functor && isFunction (f.__functor f));
+             |                   ^
+         1024|
+
+       … from call site
+         at /nix/store/qgzbakg50dy8sh7pwq4rcdmrkk6k1m84-source/default.nix:243:40:
+          242|   flip-infuse-desugared = path: infusion:
+          243|     flip-infuse-desugared-pruned path (prune path infusion);
+             |                                        ^
+          244|
+
+       … while calling 'prune'
+         at /nix/store/qgzbakg50dy8sh7pwq4rcdmrkk6k1m84-source/default.nix:219:5:
+          218|     path:
+          219|     infusion:
+             |     ^
+          220|     if isList infusion
+
+       … while evaluating a branch condition
+         at /nix/store/qgzbakg50dy8sh7pwq4rcdmrkk6k1m84-source/default.nix:220:5:
+          219|     infusion:
+          220|     if isList infusion
+             |     ^
+          221|     then map-with-path path prune infusion
+
+       … while calling the 'isList' builtin
+         at /nix/store/qgzbakg50dy8sh7pwq4rcdmrkk6k1m84-source/default.nix:220:8:
+          219|     infusion:
+          220|     if isList infusion
+             |        ^
+          221|     then map-with-path path prune infusion
+
+       … from call site
+         at /nix/store/qgzbakg50dy8sh7pwq4rcdmrkk6k1m84-source/default.nix:240:33:
+          239|   flip-infuse = path: infusion:
+          240|     flip-infuse-desugared path (desugar path infusion);
+             |                                 ^
+          241|
+
+       … while calling 'desugar'
+         at /nix/store/qgzbakg50dy8sh7pwq4rcdmrkk6k1m84-source/default.nix:458:19:
+          457|
+          458|   desugar = path: infusion:
+             |                   ^
+          459|     if isFunction infusion then
+
+       … while evaluating a branch condition
+         at /nix/store/qgzbakg50dy8sh7pwq4rcdmrkk6k1m84-source/default.nix:459:5:
+          458|   desugar = path: infusion:
+          459|     if isFunction infusion then
+             |     ^
+          460|       infusion
+
+       … from call site
+         at /nix/store/qgzbakg50dy8sh7pwq4rcdmrkk6k1m84-source/default.nix:459:8:
+          458|   desugar = path: infusion:
+          459|     if isFunction infusion then
+             |        ^
+          460|       infusion
+
+       … while calling 'isFunction'
+         at /nix/store/h2bn031b0fj0ymv9v7bv5rcdjx58y2l9-source/lib/trivial.nix:1023:16:
+         1022|   */
+         1023|   isFunction = f: builtins.isFunction f || (f ? __functor && isFunction (f.__functor f));
+             |                ^
+         1024|
+
+       … in the left operand of the OR (||) operator
+         at /nix/store/h2bn031b0fj0ymv9v7bv5rcdjx58y2l9-source/lib/trivial.nix:1023:41:
+         1022|   */
+         1023|   isFunction = f: builtins.isFunction f || (f ? __functor && isFunction (f.__functor f));
+             |                                         ^
+         1024|
+
+       … while calling the 'isFunction' builtin
+         at /nix/store/h2bn031b0fj0ymv9v7bv5rcdjx58y2l9-source/lib/trivial.nix:1023:19:
+         1022|   */
+         1023|   isFunction = f: builtins.isFunction f || (f ? __functor && isFunction (f.__functor f));
+             |                   ^
+         1024|
+
+       … from call site
+         at /nix/store/svqbs8dy1vjbrpmccn9gd27a6qn6szly-source/util/default.nix:104:41:
+          103|           (name: host-prev:
+          104|             (host-prev // (overlay name hosts-final.${name} host-prev))
+             |                                         ^
+          105|           )
+
+       (23254 duplicate frames omitted)
+
+       error: stack overflow; max-call-depth exceeded
+       at /nix/store/qgzbakg50dy8sh7pwq4rcdmrkk6k1m84-source/default.nix:240:5:
+          239|   flip-infuse = path: infusion:
+          240|     flip-infuse-desugared path (desugar path infusion);
+             |     ^
+          241|

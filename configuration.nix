@@ -81,7 +81,9 @@ let
           conf = host.pkgs.callPackage ./mdev-conf.nix { inherit host; };
         };
         mdevd-coldplug     = _: final.services.mdevd-coldplug { };
-        dnscache           = _: final.services.dnscache { };
+        dnscache           = _: final.services.dnscache { 
+          forward-queries-to = [ "8.8.8.8" "8.8.4.4" "1.1.1.1" ]; 
+        };
         nix-daemon         = _: final.services.nix-daemon {};
         # FIXME: logging sshd means it won't start if the root filesystem can't be remounted read-write
         sshd               = _: final.services.sshd {};

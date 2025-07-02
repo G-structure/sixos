@@ -9,12 +9,7 @@
  # basic minimal initrd
  (util.forall-hosts
    (host-name: final: prev: infuse prev {
-     boot.initrd.image.__assign =
-       (six-initrd {
-         inherit lib;
-         inherit (final) pkgs;
-       })
-         .minimal;
+     boot.initrd.image.__assign = six-initrd.minimal;
   }))
 
  (util.forall-hosts
@@ -29,10 +24,7 @@
     boot.initrd.contents =
       lib.mapAttrs
         (_: val: { __default = val; })
-        ((six-initrd {
-          inherit lib;
-          inherit (final) pkgs;
-        }).abduco {
+        (six-initrd.abduco {
           ttys = final.boot.initrd.ttys;
         });
   })))

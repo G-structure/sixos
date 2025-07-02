@@ -78,7 +78,19 @@ let
 
   types = root.types { inherit (site) tags; };
 
+  # Import initrd overlays
+  initrd-overlays = import ./initrd.nix {
+    inherit lib infuse six-initrd;
+    util = root.util;
+  };
+
   overlays = [
+
+    # Essential initrd overlay: provides boot.initrd.image for VM script  
+    (root.util.forall-hosts
+      (host-name: final: prev: infuse prev {
+        boot.initrd.image.__assign = six-initrd.minimal;
+      }))
 
     # configuration.nix stage - placed FIRST so it executes LAST (after all host modifications)
     (root.util.forall-hosts
@@ -97,10 +109,22 @@ let
         infuse prev {
           boot.__default = { };
           boot.__infuse = {
-            kernel.package = _: pkgs.callPackage ./kernel.nix { };
-            kernel.modules = _: "${pkgs.callPackage ./kernel.nix { }}";
-            kernel.payload = _: "${pkgs.callPackage ./kernel.nix { }}/bzImage";
+            kernel.__infuse = {
+              package.__assign = pkgs.callPackage ./kernel.nix { };
+              modules.__assign = "${pkgs.callPackage ./kernel.nix { }}";
+              payload.__assign = "${pkgs.callPackage ./kernel.nix { }}/bzImage";
+              console.__default = { device = "ttyS0"; baud = 115200; };
+              params.__default = [ "root=LABEL=boot" "ro" ];
+              firmware.__default = null;
+            };
+            # Add initrd defaults
+            initrd.__infuse = {
+              ttys.__default = { tty0 = null; ttyS0 = "115200"; };
+              contents.__default = { };
+            };
           };
+          # Ensure interfaces exists for configuration.nix
+          interfaces.__default = { };
           build.__assign = eval-config.build or (throw "mkConfiguration did not expose .build");
           configuration.__assign = eval-config;
         }
@@ -134,7 +158,8 @@ let
                   tags = types.set-tag-values (nofixpoint-host'.tags or { });
                 };
                 nofixpoint-host = q // {
-                  inherit (q) name canonical pkgs tags;
+                  inherit (q) name canonical tags;
+                  pkgs = pkgs; # use the pkgs from outer scope instead of from q
                   service-overlays = q.service-overlays or [ ];
                   boot = q.boot or { };
                 };
@@ -144,57 +169,8 @@ let
             site.hosts;
       }))
 
-    # build the ifconns and interfaces attributes
-    (root.util.forall-hosts (host-name: final: prev:
-      let
-        ifconns =
-          # all the subnets to which it is directly attached.
-          lib.pipe site.subnets [
-            (
-              lib.mapAttrs (subnetName: subnet:
-                lib.pipe subnet [
-                  # drop the __netmask key, which is not a host
-                  (lib.filterAttrs (hostName: _:
-                    !(lib.strings.hasPrefix "__" hostName)
-                  ))
-
-                  # add ${host}.netmask
-                  (lib.mapAttrs
-                    (hostName: ifconn: {
-                      netmask = subnet.__netmask;
-                    } // ifconn))
-                ])
-            )
-            (lib.mapAttrsToList
-              (subnetName: subnet:
-                if subnet?${prev.name}
-                then lib.nameValuePair subnetName subnet.${prev.name}
-                else null))
-            (lib.filter (v: v != null))
-            lib.listToAttrs
-          ];
-        interfaces =
-          { lo.type = "loopback"; } //
-          lib.pipe ifconns [
-            (lib.mapAttrsToList
-              (subnetName: ifconn:
-                if ifconn?ifname
-                then
-                  lib.nameValuePair ifconn.ifname
-                    ({
-                      subnet = subnetName;
-                    } // lib.optionalAttrs (site.subnets.${subnetName}?__type) {
-                      type = site.subnets.${subnetName}.__type;
-                    })
-                else null))
-            (lib.filter (v: v != null))
-            lib.listToAttrs
-          ];
-      in
-      prev // { inherit ifconns interfaces; }
-    ))
-
     # moved default kernel setup AFTER host-specific overlays so `boot` exists for configuration phase
+    
     # arch stage
     (root.util.forall-hosts
       (name: final: prev:
@@ -224,17 +200,11 @@ let
             }."${final.pkgs.system}" or { }
           )))
 
-    # initrd stage
-    (root.util.forall-hosts
-      (name: final: prev:
-        infuse prev {
-          boot.initrd.package = six-initrd.minimal;
-          boot.initrd.modules = final.boot.kernel.modules;
-        }))
+    # Note: legacy initrd stage was removed since initrd-overlays handle everything
 
     # Fallback: ensure every host has a `configuration` derivation so that
     # flake outputs like `packages.${system}.${host}` can evaluate even while
-    # the full mkConfiguration plumbing is being refactored.  Once the real
+    # the full mkConfiguration plumbing is being refactored. Once the real
     # implementation lands this overlay becomes a no-op (it never overwrites
     # an existing attribute).
     (root.util.forall-hosts (name: final: prev:
@@ -247,15 +217,10 @@ let
 
     # apply host-specific overlays. these come from the `service-overlays`
     # attribute of each host definition.
-    (site-final: site-prev:
-      site-prev // {
-        hosts = lib.mapAttrs
-          (name: host-prev:
-            lib.fix (self: lib.foldr lib.pipe self host-prev.service-overlays)
-          )
-          site-prev.hosts;
-      }
-    )
+    # (site-final: site-prev:
+    #   site-prev // \{
+    #     hosts = lib\.mapAttrs\[.*?\n      \}
+    #   \)
 
     # default kernel setup (reinserted after host-specific overlays)
     (root.util.forall-hosts

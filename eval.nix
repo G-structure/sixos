@@ -92,6 +92,9 @@ let
         boot.initrd.image.__assign = six-initrd.minimal;
       }))
 
+    # Apply initrd overlays: these add early/finish script for switch_root
+    ] ++ initrd-overlays ++ [
+
     # configuration.nix stage - placed FIRST so it executes LAST (after all host modifications)
     (root.util.forall-hosts
       (name: final: prev:
